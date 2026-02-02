@@ -1,0 +1,14 @@
+fastapi[all]
+uvicorn[standard]
+sqlalchemy>=2.0.0
+psycopg2-binary
+geoalchemy2
+shapely
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+qrcode[pil]
+pillow
+reportlab
+pydantic>=2.0.0
+pydantic-settings

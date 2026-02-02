@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV_NGUYENNHATTHANH</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary-bg: #f0f2f5;
+            --sidebar-bg: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --accent-color: #3498db;
+            --text-dark: #333;
+            --card-bg: #ffffff;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-dark);
+            height: 100vh;
+            overflow: hidden; 
+            display: flex;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            height: 100vh;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .img-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin-bottom: 20px;
+        }
+
+        .profile-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--accent-color);
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.5);
+            background-color: white;
+        }
+
+        .my-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .my-role {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            margin-bottom: 30px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .nav-menu {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: var(--sidebar-text);
+            padding: 15px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: var(--accent-color);
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .nav-btn i { width: 20px; text-align: center; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: #bdc3c7;
+            text-align: center;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto; 
+            position: relative;
+        }
+
+        .section {
+            display: none; 
+            animation: fadeIn 0.5s ease;
+        }
+
+        .section.active {
+            display: block; 
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            color: var(--sidebar-bg);
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--sidebar-bg);
+            margin-bottom: 5px;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            background: #e8f4fc;
+            color: var(--accent-color);
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin: 5px 5px 5px 0;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .contact-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .map-preview {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .map-preview:hover {
+            transform: scale(1.02);
+        }
+
+        .timeline {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 20px;
+            border-left: 3px solid #ddd;
+        }
+
+        .timeline-item {
+            margin-bottom: 30px;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -28px;
+            top: 5px;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        .timeline-date {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .attr-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        min-width: 200px; 
+        }
+        .attr-table td, .attr-table th {
+            border: 1px solid #ddd;
+            padding: 5px;
+        }
+        .attr-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-align: left;
+            color: #333;
+        }
+        .leaflet-popup-content {
+            margin: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .search-mark { background: #ffe66d; padding: 0 3px; border-radius: 2px; }
+        .search-box { margin-bottom: 20px; display: flex; justify-content: flex-end; }
+        .search-box form { display: flex; background: white; padding: 5px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .search-box input { border: none; outline: none; padding: 5px; }
+        .search-box button { border: none; background: none; cursor: pointer; color: var(--accent-color); }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; height: auto; overflow: auto; }
+            .sidebar { width: 100%; height: auto; padding: 20px; }
+            .main-content { padding: 20px; }
+            .nav-menu { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+            .nav-btn { width: 48%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="img-container">
+            <img src="https://github.com/nguyennhatthanh97802-dot/Mypicture/blob/main/avatar_147142.png?raw=true" alt="Tên Avatar" class="profile-img"></div>
+        <h1 class="my-name">NGUYEN NHAT THANH</h1>
+        <p class="my-role">WEBGIS DEV</p>
+
+        <nav class="nav-menu">
+            <button class="nav-btn active" onclick="showSection('home')">
+                <i class="fas fa-home"></i> HOME
+            </button>
+            <button class="nav-btn" onclick="showSection('experience')">
+                <i class="fas fa-briefcase"></i> EXPERIENCE
+            </button>
+            <button class="nav-btn" onclick="showSection('skills')">
+                <i class="fas fa-code"></i> SKILLS & EDUCATION
+            </button>
+            <button class="nav-btn" onclick="showSection('contact')">
+                <i class="fas fa-address-card"></i> CONTACT INFORMATION
+            </button>
+            <button class="nav-btn" onclick="showSection('mapping-projects')">
+                <i class="fas fa-map-marker-alt"></i> MAPPING PROJECTS
+            </button>
+         </nav>
+
+        <div class="sidebar-footer">
+            <p>&copy; 2026 STAC GIRS</p>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="search-box">
+            <form id="searchForm">
+                <input type="text" id="searchInput" placeholder="SEARCH..." />
+                <button type="submit"><i class="fas fa-search"></i></button>
+            </form>
+
+            <div id="searchResultsPanel" style="margin-top:8px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span id="resultCount" style="font-size:0.95rem;color:#333;"></span>
+                    <button id="prevResult" style="padding:6px;display:none;">Prev</button>
+                    <button id="nextResult" style="padding:6px;display:none;">Next</button>
+                </div>
+                <ul id="resultList" style="margin-top:8px;list-style:none;padding-left:0;"></ul>
+            </div>
+        </div>
+
+        <section id="home" class="section active">
+            <div class="section-header">
+                <h2>INTRODUCE</h2>
+            </div>
+            <div class="card">
+                <p style="font-size: 1.1rem; line-height: 1.8;">
+                    Hello, I am <strong>Nguyen Nhat Thanh</strong>.<br><br>
+                    I am a WebGIS developer and research assistant in Surveying and Mapping from <strong>
+                    <a href="https://www.hcmut.edu.vn/" target="_blank" style="text-decoration: none; color: inherit;">Ho Chi Minh City University of Technology.</a></strong> 
+                    I specialize in processing spatial data, remote sensing, and building online mapping systems compliant with OGC standards.
+                    <br><br>
+                    Currently, I am focusing my research at <strong> 
+                    <a href="https://vnsc.org.vn/vi/stac/" target="_blank" style="text-decoration: none; color: inherit">Ho Chi Minh City Space Technology Application Center (STAC)</a></strong> and pursuing a Master's program at the University of Technology - VNU HCM.
+                </p>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Professional objective</h3>
+                <p>Become a WebGIS expert, applying new technologies (Cloud GIS, AI in Remote Sensing) to solve urban and resource management problems in Vietnam.</p>
+            </div>
+        </section>
+
+        <section id="experience" class="section">
+            <div class="section-header">
+                <h2>EXPERIENCE</h2>
+            </div>
+            <div class="card">
+                <div class="card-title">Research Assistant GIS</div>
+                <div class="card-subtitle">Ho Chi Minh City Space Technology Application Center (STAC) | 01/2026 - Present</div>
+                <ul>
+                    <li>Researching the application of space technology and remote sensing in resource monitoring.</li>
+                    <li>Supporting processing satellite imagery and integrating into WebGIS systems.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-title">Sudent</div>
+                <div class="card-subtitle">University of Technology - VNU HCM | 06/2025 - 10/2025</div>
+                <ul>
+                    <li>Principal Investigator: <strong>Application of the VBDLIS Software System in Managing the Cadastral Database of Ward 1, District 8, Ho Chi Minh City.</strong></li>
+                    <li>Operating & Managing CSDL <strong>VBDLISEditorTC</strong> & <strong>VBDLIS Desktop</strong>.</li>
+                    <li>Processing data layers <i>Thua dat</i> and <i>Tai san gan lien voi dat.</i></li>
+                    <li>Exporting metadata and cadastral technical documentation.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="card-title">Intern</div>
+                <div class="card-subtitle">Department of Natural Resources and Environment of Chau Thanh District - Tien Giang | 06/2023 - 07/2023</div>
+                <ul>
+                    <li>Approaching the administrative process in the field of Natural Resources and Environment.</li>
+                    <li>Reviewing documents, updating land changes, and storing cadastral documents.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="skills" class="section">
+            <div class="section-header">
+                <h2>SKILLS & EDUCATION</h2>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Professional Skills</h3>
+                <div style="margin-top: 15px;">
+                    <span class="skill-tag">Python (GeoPandas, Rasterio)</span>
+                    <span class="skill-tag">ArcGIS Pro/Desktop</span>
+                    <span class="skill-tag">QGIS (Advanced)</span>
+                    <span class="skill-tag">SNAP (ESA)</span>
+                    <span class="skill-tag">VBDLIS (Cadastral)</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Education</h3>
+                <div style="margin-bottom: 20px;">
+                    <div style="font-weight: bold;">Graduate Student</div>
+                    <div style="color: #666; font-size: 0.9rem;">University of Technology - VNU HCM | 2025 - Present</div>
+                </div>
+                <div>
+                    <div style="font-weight: bold;">Bachelor of Engineering in Surveying and Mapping</div>
+                    <div style="color: #666; font-size: 0.9rem;">University of Technology - VNU HCM | 2020 - 2025</div>
+                    <p style="margin-top: 5px;">GPA: <strong>8.22/10.0</strong></p>
+                    <p><em>Activities: Student Council, Volunteer Spring, Journey to the Source,...</em></p>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Languages</h3>
+                <p>English: Professional Communication</p>
+                <p>TOEIC LR 635 Certificate</p>
+                <p>VSTEP Certificate: B1</p>
+            </div>
+        </section>
+
+        <section id="contact" class="section">
+            <div class="section-header">
+                <h2>CONTACT INFORMATION</h2>
+            </div>
+            <div class="card">
+                <div class="contact-row">
+                    <i class="fas fa-envelope" style="color: var(--accent-color);"></i>
+                    <span>nguyennhatthanh.97802@email.com</span>
+                </div>
+                <div class="contact-row">
+                    <i class="fas fa-university" style="color: var(--accent-color);"></i>
+                    <span>thanh.nguyencrsgis789@hcmut.edu.vn</span>
+                </div>
+                <div class="contact-row">
+                    <i class="fas fa-phone" style="color: var(--accent-color);"></i>
+                    <span>0768 183 978</span>
+                </div>
+                <div class="contact-row">
+                    <i class="fab fa-linkedin" style="color: var(--accent-color);"></i>
+                    <a href="https://linkedin.com/in/nguyennhatthanh-gis" target="_blank" style="text-decoration: none; color: inherit;">linkedin.com/in/nguyennhatthanh-gis</a>
+                </div>
+                <div class="contact-row">
+                    <i class="fas fa-map-marker-alt" style="color: var(--accent-color);"></i>
+                    <span>Ho Chi Minh City, Vietnam</span>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="card-title">References</h3>
+                <p><strong>PhD. Nguyen Truong Ngan</strong> - Lecturer at University of Technology - VNU HCM</p>
+                <div class="contact-row">
+                    <i class="fas fa-envelope" style="color: var(--accent-color);"></i>
+                    <span>ntngan@hcmut.edu.vn</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="mapping-projects" class="section">
+        <div class="section-header"><h2>MAPPING PROJECTS</h2></div>
+        <div class="card" style="display: flex; gap: 15px; height: 600px; padding: 10px;">
+        <div id="map" style="flex: 1; border-radius: 8px; border: 1px solid #ddd;"></div>
+        
+        <aside id="map-sidebar" style="width: 250px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; overflow-y: auto;">
+            <h4 style="margin-bottom: 10px; color: var(--sidebar-bg);"><i class="fas fa-tools"></i> TOOLBOX</h4>
+                <div style="margin-top: 10px;">
+                <label style="font-size: 0.8rem;">Query Layer:</label>
+                <select id="queryLayer" style="width: 100%; font-size: 0.8rem; padding: 5px;">
+                    <option value="vn:vn34">VN MAP</option>
+                    <option value="vn:couaround">WORLD COUNTRIES</option>
+                    <option value="vn:thudotinh">VIETNAM CAPITALS</option>
+                </select>
+                </div>
+                <div class="control-group" style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;"><input type="checkbox" id="cb_vn34" checked> VN MAP</label>
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;"><input type="checkbox" id="cb_couaround"> WORLD COUNTRIES</label>
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;"><input type="checkbox" id="cb_thudotinh"> VIETNAM CAPITALS</label>
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;"><input type="checkbox" id="cb_projects" checked> SURVEY POINTS</label>
+            </div>
+
+            <h4 style="margin-bottom: 10px; color: var(--sidebar-bg);"><i class="fas fa-info-circle"></i> FEATURE INFO</h4>
+            <div id="featureInfo" style="font-size: 0.85rem; color: #666; background: white; padding: 10px; border-radius: 4px; border: 1px solid #eee; min-height: 150px;">
+                Click on VN Map to query.
+            </div>
+
+            <div style="margin-top: 20px;">
+                <label style="font-size: 0.8rem;">Layer Opacity</label>
+                <input id="opacityRange" type="range" min="0" max="1" step="0.1" value="1" style="width: 100%;">
+            </div>
+        </aside>
+        </div>
+        </section>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+ 
+    var geoserverUrl = 'http://localhost:8080/geoserver/wms';
+    var map;
+    map = L.map('map').setView([16.0, 108.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var layervn34 = L.tileLayer.wms(geoserverUrl, {
+        layers: 'vn:vn34',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.0',
+        attribution: 'VN MAP'
+    }).addTo(map);
+
+    var layercouaround = L.tileLayer.wms(geoserverUrl, {
+        layers: 'vn:couaround',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.0',
+        attribution: 'WORLD COUNTRIES'
+    });
+
+    var layerthudotinh = L.tileLayer.wms(geoserverUrl, {
+        layers: 'vn:thudotinh',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.0',
+        attribution: 'CAPITAL VN'
+    });
+
+    var highlightLayer = L.geoJSON(null, {
+        style: function () { return { color: '#f1c40f', weight: 3, fillColor: '#f7dc6f', fillOpacity: 0.5 }; },
+        pointToLayer: function (geoJsonPoint, latlng) {
+            return L.circleMarker(latlng, { radius: 8, color: '#f1c40f', fillColor: '#f7dc6f', fillOpacity: 0.9, weight: 2 });
+        }
+    }).addTo(map);
+    
+    var cbVn34 = document.getElementById('cb_vn34');
+    var cbCou = document.getElementById('cb_couaround');
+    var cbThu = document.getElementById('cb_thudotinh');
+    var opacityInput = document.getElementById('opacityRange'); 
+    var featureInfo = document.getElementById('featureInfo');
+
+    map.on('click', function(e) {
+    var queryLayer = document.getElementById('queryLayer').value;
+    var point = map.latLngToContainerPoint(e.latlng, map.getZoom());
+    var size = map.getSize();
+    
+    var params = {
+        request: 'GetFeatureInfo',
+        service: 'WMS',
+        srs: 'EPSG:4326',
+        styles: '',
+        transparent: true,
+        version: '1.1.0',
+        format: 'image/png',
+        bbox: map.getBounds().toBBoxString(),
+        height: size.y,
+        width: size.x,
+        layers: queryLayer,
+        query_layers: queryLayer,
+        info_format: 'application/json',
+        x: Math.round(point.x),
+        y: Math.round(point.y)
+    };
+
+    var url = geoserverUrl + L.Util.getParamString(params, geoserverUrl, true);
+    var proxyUrl = "proxy.php?url=" + encodeURIComponent(url);
+    featureInfo.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    fetch(proxyUrl)
+        .then(res => res.json())
+        .then(data => {
+            highlightLayer.clearLayers();
+            var content = "";
+            if (data.features && data.features.length > 0) {
+                highlightLayer.clearLayers();
+                highlightLayer.addData(data);
+                var properties = data.features[0].properties;
+                var labelMap = {
+                    'type_1': 'XẾP HẠNG',
+                    'name_1': 'TÊN TỈNH/THÀNH PHỐ',
+                    'layer': 'LỚP DỮ LIỆU',
+                    'name_0': 'TÊN QUỐC GIA'
+                };
+                var keysOrder = ['type_1', 'name_1', 'layer', 'name_0'];
+
+                var rows = [];
+                for (var i = 0; i < keysOrder.length; i++) {
+                    var k = keysOrder[i];
+                    if (properties[k] !== undefined && properties[k] !== null && properties[k] !== '') {
+                        rows.push('<tr><th>' + labelMap[k] + '</th><td>' + properties[k] + '</td></tr>');
+                    }
+                }
+
+                if (rows.length > 0) {
+                    content = "<table class='attr-table'>" + rows.join('') + "</table>";
+                } else {
+                    content = 'No data here...';
+                }
+
+                try {
+                  var b = highlightLayer.getBounds();
+                  if (b.isValid()) map.fitBounds(b.pad(1.0));
+                } catch (e) { /* ignore */ }
+             } else {
+                 content = 'No data here...';
+             }
+            featureInfo.innerHTML = content;
+           })
+        .catch(err => {
+            featureInfo.innerHTML = '<span style="color:red">Error! Check proxy/server.</span>';
+        });
+});
+    function setLayerVisibility(checkbox, layer) {
+        if (!checkbox || !layer) return;
+        if (checkbox.checked) map.addLayer(layer); else map.removeLayer(layer);
+    }
+    if(cbVn34) cbVn34.addEventListener('change', function(){ setLayerVisibility(cbVn34, layervn34); });
+    if(cbCou) cbCou.addEventListener('change', function(){ setLayerVisibility(cbCou, layercouaround); });
+    if(cbThu) cbThu.addEventListener('change', function(){ setLayerVisibility(cbThu, layerthudotinh); });
+
+    if(opacityInput) {
+        opacityInput.addEventListener('input', function(){
+            var val = parseFloat(this.value);
+            [layervn34, layercouaround, layerthudotinh].forEach(function(l){ if (l.setOpacity) l.setOpacity(val); });
+        });
+    }
+    function showSection(sectionId) {
+        const sections = document.querySelectorAll('.section');
+        const buttons = document.querySelectorAll('.nav-btn');
+        const targetSection = document.getElementById(sectionId);
+
+        if (!targetSection) return;
+
+        sections.forEach(sec => sec.classList.remove('active'));
+        buttons.forEach(btn => btn.classList.remove('active'));
+
+        targetSection.classList.add('active');
+
+        buttons.forEach(btn => {
+            if (btn.getAttribute('onclick')?.includes(sectionId)) {
+                btn.classList.add('active');
+            }
+        });
+
+        if (sectionId === 'mapping-projects' && map) {
+            setTimeout(() => map.invalidateSize(), 200);
+        }
+    }
+
+    (function() {
+        let matches = [];
+        let currentMatch = -1;
+        const els = {
+            count: document.getElementById('resultCount'),
+            list: document.getElementById('resultList'),
+            prev: document.getElementById('prevResult'),
+            next: document.getElementById('nextResult'),
+            input: document.getElementById('searchInput'),
+            form: document.getElementById('searchForm')
+        };
+
+        function escapeRegExp(s) { return s ? s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : ''; }
+
+        function clearHighlights() {
+            document.querySelectorAll('.search-mark').forEach(mark => {
+                const parent = mark.parentNode;
+                if(parent) {
+                    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+                    mark.remove();
+                }
+            });
+            matches = [];
+            currentMatch = -1;
+            if (els.count) els.count.textContent = '';
+            if (els.list) els.list.innerHTML = '';
+            [els.prev, els.next].forEach(btn => btn && (btn.style.display = 'none'));
+        }
+
+        function performSearch(term) {
+            clearHighlights();
+            if (!term || term.length < 2) return;
+
+            const re = new RegExp('(' + escapeRegExp(term) + ')', 'gi');
+            const contentNodes = document.querySelectorAll('.main-content *:not(script):not(style):not(mark)');
+            let idCounter = 0;
+
+            contentNodes.forEach(el => {
+                if (el.children.length === 0 && el.innerText && el.innerText.trim() !== "") {
+                    if (re.test(el.innerText)) {
+                        el.innerHTML = el.innerHTML.replace(re, m => {
+                            idCounter++;
+                            return `<mark class="search-mark" data-mid="${idCounter}">${m}</mark>`;
+                        });
+                    }
+                }
+            });
+
+            const marks = document.querySelectorAll('.search-mark');
+            marks.forEach((mark) => {
+                const sec = mark.closest('.section');
+                matches.push({
+                    mid: mark.getAttribute('data-mid'),
+                    el: mark,
+                    section: sec ? sec.id : 'home',
+                    text: mark.textContent
+                });
+            });
+
+            if (matches.length === 0) {
+                alert('Không tìm thấy: ' + term);
+                return;
+            }
+            renderResults();
+            gotoMatch(0);
+        }
+
+        function renderResults() {
+            if (els.count) els.count.textContent = `${matches.length} kết quả`;
+            if (els.list) {
+                els.list.innerHTML = matches.map((m, i) => 
+                    `<li style="padding:4px 0"><a href="#" class="search-link" data-i="${i}" style="text-decoration:none;color:#007bff;">[${m.section}] ${m.text.substring(0,25)}...</a></li>`
+                ).join('');
+                els.list.querySelectorAll('.search-link').forEach(link => {
+                    link.onclick = (e) => { e.preventDefault(); gotoMatch(parseInt(link.dataset.i)); };
+                });
+            }
+            const display = matches.length > 1 ? 'inline-block' : 'none';
+            if(els.prev) els.prev.style.display = display;
+            if(els.next) els.next.style.display = display;
+        }
+
+        function gotoMatch(i) {
+            if (matches.length === 0) return;
+            if (i < 0) i = matches.length - 1;
+            if (i >= matches.length) i = 0;
+            currentMatch = i;
+
+            document.querySelectorAll('.search-mark.active').forEach(m => {
+                m.classList.remove('active');
+                m.style.outline = '';
+            });
+
+            const m = matches[i];
+            const markEl = document.querySelector(`.search-mark[data-mid="${m.mid}"]`);
+            if (!markEl) return;
+
+            markEl.classList.add('active');
+            markEl.style.outline = '3px solid #ffc107';
+
+            showSection(m.section);
+            setTimeout(() => {
+                markEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+
+        els.prev?.addEventListener('click', () => gotoMatch(currentMatch - 1));
+        els.next?.addEventListener('click', () => gotoMatch(currentMatch + 1));
+        els.form?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            performSearch(els.input.value.trim());
+        });
+        els.input?.addEventListener('input', function() {
+            if (!this.value) clearHighlights();
+        });
+    })();
+</script>
+</body>
+</html>

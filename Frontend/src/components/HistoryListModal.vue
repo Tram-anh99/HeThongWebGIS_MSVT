@@ -1,0 +1,218 @@
+<template>
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click="$emit('close')">
+    <div class="card w-full max-w-4xl max-h-[90vh] flex flex-col" @click.stop>
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-4 p-4 border-b">
+        <div>
+          <h2 class="text-xl font-bold">Nhật ký canh tác</h2>
+          <p class="text-sm text-gray-600">{{ farm?.ten_vung }} ({{ farm?.ma_vung }})</p>
+        </div>
+        <button @click="$emit('close')" class="text-gray-500 hover:text-gray-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Filters & Actions -->
+      <div class="px-4 pb-4 flex flex-wrap gap-4 justify-between bg-white z-10">
+        <div class="flex gap-2">
+          <input 
+            v-model="filters.from_date" 
+            type="date" 
+            class="input-field py-1 text-sm" 
+            placeholder="Từ ngày"
+          />
+          <input 
+            v-model="filters.to_date" 
+            type="date" 
+            class="input-field py-1 text-sm" 
+            placeholder="Đến ngày"
+          />
+          <button @click="fetchHistory" class="btn-secondary py-1 px-3 text-sm">
+            Lọc
+          </button>
+        </div>
+        <button v-if="user && user.role !== 'admin'" @click="$emit('add')" class="btn-primary py-1 px-3 text-sm flex items-center gap-1">
+          <span>+ Ghi nhật ký</span>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50">
+        <div v-if="loading" class="flex justify-center py-10">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+
+        <div v-else-if="historyRecords.length === 0" class="text-center py-10 text-gray-500 bg-white rounded-lg shadow-sm border border-gray-100">
+          <p>Chưa có nhật ký nào cho giai đoạn này.</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div 
+            v-for="record in historyRecords" 
+            :key="record.id" 
+            class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition relative group"
+          >
+            <!-- Timeline Line (Visual) -->
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary-100 rounded-l-lg group-hover:bg-primary-500 transition-colors"></div>
+
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-bold text-gray-800">{{ formatDate(record.ngay_thuc_hien) }}</span>
+                  <span 
+                    class="px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="getActivityColor(record.loai_hoat_dong_name)"
+                  >
+                    {{ record.loai_hoat_dong_name || 'Hoạt động' }}
+                  </span>
+                </div>
+                
+                <p class="text-gray-700 font-medium mb-1">{{ record.chi_tiet }}</p>
+                
+                <div class="text-sm text-gray-500 grid md:grid-cols-2 gap-x-4 gap-y-1 mt-2 bg-gray-50 p-2 rounded">
+                  <div v-if="record.phan_bon_name">
+                    <span class="font-medium text-gray-600">Phân bón:</span> {{ record.phan_bon_name }}
+                  </div>
+                  <div v-if="record.thuoc_bvtv_name">
+                    <span class="font-medium text-gray-600">Thuốc BVTV:</span> {{ record.thuoc_bvtv_name }}
+                  </div>
+                  <div v-if="record.lieu_luong">
+                    <span class="font-medium text-gray-600">Liều lượng:</span> {{ record.lieu_luong }} {{ record.don_vi }}
+                  </div>
+                  <div v-if="record.nguoi_thuc_hien">
+                    <span class="font-medium text-gray-600">Người thực hiện:</span> {{ record.nguoi_thuc_hien }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex flex-col gap-2 ml-4" v-if="user && user.role !== 'admin'">
+                <button 
+                  @click.stop="$emit('edit', record)"
+                  class="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                  title="Sửa"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button 
+                  @click.stop="confirmDelete(record)"
+                  class="p-1 text-red-600 hover:bg-red-50 rounded"
+                  title="Xóa"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer / Pagination if needed -->
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, watch } from 'vue'
+import { historyService } from '../services/historyService'
+import { useAuth } from '../composables/useAuth'
+
+const props = defineProps({
+  farm: {
+    type: Object,
+    required: true
+  }
+})
+
+const emit = defineEmits(['close', 'add', 'edit', 'refresh'])
+const { user } = useAuth()
+
+const historyRecords = ref([])
+const loading = ref(false)
+const filters = ref({
+  from_date: '',
+  to_date: ''
+})
+
+const fetchHistory = async () => {
+  if (!props.farm?.id) return
+  
+  loading.value = true
+  try {
+    const params = {
+      vung_trong_id: props.farm.id,
+      from_date: filters.value.from_date || undefined,
+      to_date: filters.value.to_date || undefined,
+      page_size: 100 // Get many records
+    }
+    const response = await historyService.getHistory(params)
+    historyRecords.value = response.data.items
+  } catch (err) {
+    console.error('Fetch history error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const confirmDelete = async (record) => {
+  if (confirm('Bạn có chắc muốn xóa nhật ký này?')) {
+    try {
+      await historyService.deleteHistory(record.id)
+      fetchHistory() // Reload list
+    } catch (err) {
+      alert('Không thể xóa nhật ký: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleDateString('vi-VN')
+}
+
+const getActivityColor = (name) => {
+  const map = {
+    'Bón phân': 'bg-green-100 text-green-800',
+    'Phun thuốc': 'bg-red-100 text-red-800',
+    'Tưới nước': 'bg-blue-100 text-blue-800',
+    'Thu hoạch': 'bg-yellow-100 text-yellow-800',
+    'Gieo trồng': 'bg-purple-100 text-purple-800'
+  }
+  // Basic search for keywords
+  if (!name) return 'bg-gray-100 text-gray-800'
+  for (const key in map) {
+    if (name.includes(key)) return map[key]
+  }
+  return 'bg-gray-100 text-gray-800'
+}
+
+// Expose refresh method to parent if needed, or watch props
+watch(() => props.farm, () => {
+  fetchHistory()
+}, { immediate: true })
+
+defineExpose({ fetchHistory })
+
+</script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #ccc; 
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #bbb; 
+}
+</style>

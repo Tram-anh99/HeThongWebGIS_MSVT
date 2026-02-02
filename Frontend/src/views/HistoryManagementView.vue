@@ -1,0 +1,375 @@
+<template>
+  <div class="history-management-view">
+    <div class="container mx-auto px-4 py-6">
+      <!-- Farmer Access Guard -->
+      <div v-if="user && user.role !== 'farmer'" class="text-center py-12">
+        <p class="text-xl text-gray-600">Chức năng này chỉ dành cho nông dân</p>
+      </div>
+      
+      <template v-else>
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-3xl font-bold">Quản lý Nhật ký canh tác</h1>
+          <button
+            @click="openAddModal"
+            class="btn-primary"
+          >
+            + Thêm Nhật ký
+          </button>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card mb-6">
+          <div class="grid md:grid-cols-4 gap-4">
+            <select
+              v-model="filters.vung_trong_id"
+              class="input-field"
+              @change="handleSearch"
+            >
+              <option value="">-- Tất cả vùng trồng --</option>
+              <option v-for="farm in userFarms" :key="farm.id" :value="farm.id">
+                {{ farm.ten_vung }}
+              </option>
+            </select>
+            <input
+              v-model="filters.from_date"
+              type="date"
+              placeholder="Từ ngày..."
+              class="input-field"
+              @change="handleSearch"
+            />
+            <input
+              v-model="filters.to_date"
+              type="date"
+              placeholder="Đến ngày..."
+              class="input-field"
+              @change="handleSearch"
+            />
+            <button
+              @click="clearFilters"
+              class="btn-secondary"
+            >
+              Xóa bộ lọc
+            </button>
+          </div>
+        </div>
+      
+      <!-- History Table -->
+      <div class="card overflow-x-auto">
+        <div v-if="loading" class="text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p class="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+        
+        <table v-else class="w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vùng trồng</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hoạt động</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chi tiết</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người thực hiện</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr v-for="record in historyRecords" :key="record.id" class="hover:bg-gray-50">
+              <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                {{ formatDate(record.ngay_thuc_hien) }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                {{ getFarmName(record.vung_trong_id) }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  {{ getActivityName(record.loai_hoat_dong_id) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                <div class="max-w-xs truncate" :title="record.chi_tiet">
+                  {{ record.chi_tiet }}
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">{{ record.nguoi_thuc_hien || '-' }}</td>
+              <td class="px-4 py-3 text-sm flex gap-2">
+                <button
+                  @click="editRecord(record)"
+                  class="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Sửa
+                </button>
+                <button
+                  @click="deleteRecord(record)"
+                  class="text-red-600 hover:text-red-800 font-medium"
+                >
+                  Xóa
+                </button>
+                <button
+                  @click="viewDetails(record)"
+                  class="text-green-600 hover:text-green-800 font-medium"
+                >
+                  Chi tiết
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div v-if="!loading && historyRecords.length === 0" class="text-center py-8 text-gray-500">
+          Không có nhật ký nào
+        </div>
+      </div>
+      
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="mt-6 flex justify-center space-x-2">
+        <button
+          v-for="page in totalPages"
+          :key="page"
+          @click="currentPage = page; fetchHistory()"
+          class="px-4 py-2 rounded-lg font-medium transition"
+          :class="page === currentPage ? 'bg-primary-600 text-white' : 'bg-gray-200 hover:bg-gray-300'"
+        >
+          {{ page }}
+        </button>
+      </div>
+      </template>
+    </div>
+    
+    <!-- Add/Edit Modal -->
+    <HistoryFormModal
+      v-if="showFormModal && selectedFarm"
+      :farm-id="selectedFarm.id"
+      :initial-data="selectedRecord"
+      @close="closeFormModal"
+      @saved="refreshHistory"
+    />
+    
+    <!-- Details Modal -->
+    <div
+      v-if="showDetailsModal && selectedRecord"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click="showDetailsModal = false"
+    >
+      <div class="card max-w-2xl w-full" @click.stop>
+        <h2 class="text-2xl font-bold mb-4">Chi tiết Nhật ký</h2>
+        
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium text-gray-500">Ngày thực hiện</label>
+              <p class="text-gray-900">{{ formatDate(selectedRecord.ngay_thuc_hien) }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-gray-500">Vùng trồng</label>
+              <p class="text-gray-900">{{ getFarmName(selectedRecord.vung_trong_id) }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-gray-500">Hoạt động</label>
+              <p class="text-gray-900">{{ getActivityName(selectedRecord.loai_hoat_dong_id) }}</p>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-gray-500">Người thực hiện</label>
+              <p class="text-gray-900">{{ selectedRecord.nguoi_thuc_hien || '-' }}</p>
+            </div>
+          </div>
+          
+          <div>
+            <label class="text-sm font-medium text-gray-500">Chi tiết</label>
+            <p class="text-gray-900 whitespace-pre-wrap">{{ selectedRecord.chi_tiet }}</p>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4" v-if="selectedRecord.phan_bon_id || selectedRecord.thuoc_bvtv_id">
+            <div v-if="selectedRecord.phan_bon_id">
+              <label class="text-sm font-medium text-gray-500">Phân bón</label>
+              <p class="text-gray-900">{{ getFertilizerName(selectedRecord.phan_bon_id) }}</p>
+            </div>
+            <div v-if="selectedRecord.thuoc_bvtv_id">
+              <label class="text-sm font-medium text-gray-500">Thuốc BVTV</label>
+              <p class="text-gray-900">{{ getPesticideName(selectedRecord.thuoc_bvtv_id) }}</p>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4" v-if="selectedRecord.lieu_luong">
+            <div>
+              <label class="text-sm font-medium text-gray-500">Liều lượng</label>
+              <p class="text-gray-900">{{ selectedRecord.lieu_luong }} {{ selectedRecord.don_vi }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <button @click="showDetailsModal = false" class="btn-secondary w-full mt-4">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { historyService } from '../services/historyService'
+import { farmService } from '../services/farmService'
+import { categoryService } from '../services/categoryService'
+import { useAuth } from '../composables/useAuth'
+import HistoryFormModal from '../components/HistoryFormModal.vue'
+
+const { user } = useAuth()
+
+const historyRecords = ref([])
+const userFarms = ref([])  // Farmer's assigned farms
+const loading = ref(false)
+const currentPage = ref(1)
+const totalPages = ref(1)
+
+const filters = ref({
+  vung_trong_id: '',
+  from_date: '',
+  to_date: ''
+})
+
+// Categories for lookups
+const categories = ref({
+  activities: [],
+  fertilizers: [],
+  pesticides: []
+})
+
+// Modal states
+const showFormModal = ref(false)
+const showDetailsModal = ref(false)
+const selectedRecord = ref(null)
+const selectedFarm = ref(null)
+
+const fetchUserFarms = async () => {
+  try {
+    const response = await farmService.getFarms({ page_size: 100 })
+    userFarms.value = response.data.items
+  } catch (err) {
+    console.error('Error fetching farms:', err)
+  }
+}
+
+const fetchCategories = async () => {
+  try {
+    const [actRes, fertRes, pestRes] = await Promise.all([
+      categoryService.getActivities(),
+      categoryService.getFertilizers(),
+      categoryService.getPesticides()
+    ])
+    categories.value.activities = actRes.data
+    categories.value.fertilizers = fertRes.data
+    categories.value.pesticides = pestRes.data
+  } catch (err) {
+    console.error('Error fetching categories:', err)
+  }
+}
+
+const fetchHistory = async () => {
+  loading.value = true
+  try {
+    const params = {
+      page: currentPage.value,
+      page_size: 20,
+      vung_trong_id: filters.value.vung_trong_id || undefined,
+      from_date: filters.value.from_date || undefined,
+      to_date: filters.value.to_date || undefined
+    }
+    const response = await historyService.getHistory(params)
+    historyRecords.value = response.data.items
+    totalPages.value = response.data.total_pages
+  } catch (err) {
+    console.error('Fetch history error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchHistory()
+}
+
+const clearFilters = () => {
+  filters.value = { vung_trong_id: '', from_date: '', to_date: '' }
+  handleSearch()
+}
+
+const openAddModal = () => {
+  if (userFarms.value.length > 0) {
+    selectedFarm.value = userFarms.value[0]
+    selectedRecord.value = null
+    showFormModal.value = true
+  } else {
+    alert('Bạn chưa có vùng trồng nào được phân công!')
+  }
+}
+
+const editRecord = (record) => {
+  const farm = userFarms.value.find(f => f.id === record.vung_trong_id)
+  if (farm) {
+    selectedFarm.value = farm
+    selectedRecord.value = { ...record }
+    showFormModal.value = true
+  }
+}
+
+const deleteRecord = async (record) => {
+  if (!confirm(`Xác nhận xóa nhật ký ngày ${formatDate(record.ngay_thuc_hien)}?`)) return
+  
+  try {
+    await historyService.deleteHistory(record.id)
+    fetchHistory()
+  } catch (err) {
+    alert('Lỗi khi xóa nhật ký: ' + (err.response?.data?.detail || err.message))
+  }
+}
+
+const viewDetails = (record) => {
+  selectedRecord.value = record
+  showDetailsModal.value = true
+}
+
+const closeFormModal = () => {
+  showFormModal.value = false
+  selectedRecord.value = null
+  selectedFarm.value = null
+}
+
+const refreshHistory = () => {
+  fetchHistory()
+  closeFormModal()
+}
+
+// Helper functions
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('vi-VN')
+}
+
+const getFarmName = (farmId) => {
+  const farm = userFarms.value.find(f => f.id === farmId)
+  return farm?.ten_vung || '-'
+}
+
+const getActivityName = (activityId) => {
+  const activity = categories.value.activities.find(a => a.id === activityId)
+  return activity?.ten_hoat_dong || 'Hoạt động'
+}
+
+const getFertilizerName = (fertilizerId) => {
+  const fertilizer = categories.value.fertilizers.find(f => f.id === fertilizerId)
+  return fertilizer?.ten_phan_bon || '-'
+}
+
+const getPesticideName = (pesticideId) => {
+  const pesticide = categories.value.pesticides.find(p => p.id === pesticideId)
+  return pesticide?.ten_thuoc || '-'
+}
+
+onMounted(() => {
+  if (user.value?.role === 'farmer') {
+    fetchUserFarms()
+    fetchCategories()
+    fetchHistory()
+  }
+})
+</script>
