@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_PREFIX: str = "/api"
     
+    # ========== Frontend Settings ==========
+    FRONTEND_URL: str = "http://localhost:5173"
+    
     # ========== Database Settings ==========
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432

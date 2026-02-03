@@ -26,8 +26,8 @@ async def generate_qr(ma_vung: str, db: Session = Depends(get_db)):
             detail=f"Farm with code {ma_vung} not found"
         )
     
-    # Generate QR code
-    qr_image = generate_farm_qr_code(ma_vung, base_url="http://localhost:8000")
+    # Generate QR code with frontend URL
+    qr_image = generate_farm_qr_code(ma_vung, base_url=settings.FRONTEND_URL)
     
     return StreamingResponse(qr_image, media_type="image/png")
 
