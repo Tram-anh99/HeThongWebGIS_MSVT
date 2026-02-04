@@ -484,15 +484,32 @@ const filteredFertilizerUsageData = computed(() => {
   const farms = filteredFarms.value
   if (farms.length === 0) return []
   
-  // Aggregate fertilizer usage frequency
-  const usageMap = {}
+  // Aggregate fertilizer volume into ranges
+  const volumeRanges = {
+    '0-50 kg': 0,
+    '50-100 kg': 0,
+    '100-200 kg': 0,
+    '200+ kg': 0
+  }
+  
   farms.forEach(farm => {
-    const usage = Math.round(farm.fertilizer_usage || 0)
-    const key = `${usage} lần`
-    usageMap[key] = (usageMap[key] || 0) + 1
+    const volume = farm.fertilizer_volume || 0
+    if (volume === 0) {
+      // Skip farms with no fertilizer data
+    } else if (volume < 50) {
+      volumeRanges['0-50 kg']++
+    } else if (volume < 100) {
+      volumeRanges['50-100 kg']++
+    } else if (volume < 200) {
+      volumeRanges['100-200 kg']++
+    } else {
+      volumeRanges['200+ kg']++
+    }
   })
   
-  return Object.entries(usageMap).map(([name, value]) => ({ name, value }))
+  return Object.entries(volumeRanges)
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({ name, value }))
 })
 
 const fertilizerUsageOption = computed(() => ({
@@ -512,15 +529,32 @@ const filteredPesticideUsageData = computed(() => {
   const farms = filteredFarms.value
   if (farms.length === 0) return []
   
-  // Aggregate pesticide usage frequency
-  const usageMap = {}
+  // Aggregate pesticide volume into ranges
+  const volumeRanges = {
+    '0-2 lít': 0,
+    '2-5 lít': 0,
+    '5-10 lít': 0,
+    '10+ lít': 0
+  }
+  
   farms.forEach(farm => {
-    const usage = Math.round(farm.pesticide_usage || 0)
-    const key = `${usage} lần`
-    usageMap[key] = (usageMap[key] || 0) + 1
+    const volume = farm.pesticide_volume || 0
+    if (volume === 0) {
+      // Skip farms with no pesticide data
+    } else if (volume < 2) {
+      volumeRanges['0-2 lít']++
+    } else if (volume < 5) {
+      volumeRanges['2-5 lít']++
+    } else if (volume < 10) {
+      volumeRanges['5-10 lít']++
+    } else {
+      volumeRanges['10+ lít']++
+    }
   })
   
-  return Object.entries(usageMap).map(([name, value]) => ({ name, value }))
+  return Object.entries(volumeRanges)
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({ name, value }))
 })
 
 const pesticideUsageOption = computed(() => ({
@@ -693,6 +727,25 @@ const handleChartClick = (chartType, event) => {
 // NEW: Layer and Interaction Methods
 const toggleLayer = (layerName) => {
   console.log(`Toggle layer: ${layerName} = ${layers.value[layerName]}`)
+  
+  // Handle farm layer visibility toggle
+  if (layerName === 'farms') {
+    if (layers.value.farms) {
+      // Show all farm markers (respecting current filters)
+      const filteredIds = new Set(filteredFarms.value.map(f => f.id))
+      farmMarkers.value.forEach(({ marker, farm }) => {
+        if (filteredIds.has(farm.id)) {
+          marker.addTo(map.value)
+        }
+      })
+    } else {
+      // Hide all farm markers
+      farmMarkers.value.forEach(({ marker }) => {
+        marker.remove()
+      })
+    }
+  }
+  
   // Update all marker styles based on active layers
   updateMarkerStyles()
 }
@@ -878,30 +931,40 @@ const updateMarkerStyles = () => {
     let fillOpacity = 0.6
     let radius = 6
     
-    // Apply market color if layer is active
+    // Step 1: Determine base color from Markets layer or default gray
     if (layers.value.markets) {
       fillColor = getMarketColor(farm.thi_truong_xuat_khau)
     }
     
-    // Apply fertilizer opacity if layer is active
+    // Step 2: Adjust opacity based on Fertilizer layer
+    // If fertilizer layer is active, modulate the opacity based on fertilizer volume
+    // Higher fertilizer volume = higher opacity (darker/more opaque)
     if (layers.value.fertilizer) {
-      const maxUsage = Math.max(...farmsData.value.map(f => f.fertilizer_usage || 0))
-      const usage = farm.fertilizer_usage || 0
-      fillOpacity = usage > 0 ? 0.3 + (usage / maxUsage) * 0.7 : 0.3
-      // If fertilizer layer is on, use green tint
-      if (!layers.value.markets) {
-        fillColor = '#10b981'
+      const maxVolume = Math.max(...farmsData.value.map(f => f.fertilizer_volume || 0))
+      const volume = farm.fertilizer_volume || 0
+      
+      if (maxVolume > 0 && volume > 0) {
+        // Calculate intensity (0 to 1)
+        const intensity = volume / maxVolume
+        
+        // Map fertilizer intensity to opacity: 0.3 (light) to 0.95 (dark)
+        fillOpacity = 0.3 + (intensity * 0.65)
+      } else {
+        // No fertilizer data - very low opacity (transparent)
+        fillOpacity = 0.2
       }
     }
     
-    // Apply pesticide size if layer is active
+    // Step 3: Adjust size based on Pesticide layer
     if (layers.value.pesticide) {
-      const maxUsage = Math.max(...farmsData.value.map(f => f.pesticide_usage || 0))
-      const usage = farm.pesticide_usage || 0
-      radius = usage > 0 ? 4 + (usage / maxUsage) * 8 : 4
-      // If pesticide layer is on without market, use orange tint
-      if (!layers.value.markets && !layers.value.fertilizer) {
-        fillColor = '#f59e0b'
+      const maxVolume = Math.max(...farmsData.value.map(f => f.pesticide_volume || 0))
+      const volume = farm.pesticide_volume || 0
+      
+      if (maxVolume > 0 && volume > 0) {
+        // Scale radius from 5px (min) to 18px (max) for better visibility
+        radius = 5 + (volume / maxVolume) * 13
+      } else {
+        radius = 5  // Minimum size for no data
       }
     }
     
@@ -982,9 +1045,9 @@ const initDashboardMap = async () => {
         ...farm,
         latitude: parseFloat(farm.latitude),
         longitude: parseFloat(farm.longitude),
-        // Use real usage data if available, otherwise default to 0
-        fertilizer_usage: farm.fertilizer_usage || 0,
-        pesticide_usage: farm.pesticide_usage || 0
+        // Parse volume data as floats to handle backend returning strings
+        fertilizer_volume: parseFloat(farm.fertilizer_volume) || 0,
+        pesticide_volume: parseFloat(farm.pesticide_volume) || 0
       }))
     
     console.log(`Loaded ${farms.length} farms, ${farmsWithData.length} have valid coordinates`)
@@ -1013,8 +1076,8 @@ const initDashboardMap = async () => {
           <p style="margin: 4px 0; color: #6b7280">${farm.ten_vung || 'N/A'}</p>
           <p style="margin: 4px 0; font-size: 14px"><strong>Tỉnh:</strong> ${farm.tinh_name}</p>
           <p style="margin: 4px 0; font-size: 14px"><strong>Thị trường:</strong> ${farm.thi_truong_xuat_khau || 'N/A'}</p>
-          <p style="margin: 4px 0; font-size: 14px"><strong>Phân bón:</strong> ${farm.fertilizer_usage.toFixed(1)} lần</p>
-          <p style="margin: 4px 0; font-size: 14px"><strong>Thuốc BVTV:</strong> ${farm.pesticide_usage.toFixed(1)} lần</p>
+          <p style="margin: 4px 0; font-size: 14px"><strong>Phân bón:</strong> ${farm.fertilizer_volume.toFixed(1)} kg</p>
+          <p style="margin: 4px 0; font-size: 14px"><strong>Thuốc BVTV:</strong> ${farm.pesticide_volume.toFixed(1)} lít</p>
         </div>
       `)
       
@@ -1055,13 +1118,19 @@ onMounted(async () => {
 })
 
 // Watch for filter changes and update map markers reactively
-watch([filteredFarms, selectedFarm], async ([newFilteredFarms, newSelectedFarm]) => {
+watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilteredFarms, newSelectedFarm, farmsLayerEnabled]) => {
   if (!map.value || farmMarkers.value.length === 0) return
   
   // Hide all markers first
   farmMarkers.value.forEach(({ marker }) => {
     marker.remove()
   })
+  
+  // Only show markers if farms layer is enabled
+  if (!farmsLayerEnabled) {
+    console.log('Farms layer is disabled, hiding all farm markers')
+    return
+  }
   
   // Show markers only for filtered farms
   const filteredIds = new Set(newFilteredFarms.map(f => f.id))
@@ -1084,28 +1153,36 @@ watch([filteredFarms, selectedFarm], async ([newFilteredFarms, newSelectedFarm])
       let fillOpacity = 0.6
       let radius = 6
       
-      // Apply market color if layer is active
+      // Step 1: Determine base color from Markets layer or default gray
       if (layers.value.markets) {
         fillColor = getMarketColor(farm.thi_truong_xuat_khau)
       }
       
-      // Apply fertilizer opacity if layer is active
+      // Step 2: Adjust opacity based on Fertilizer layer
       if (layers.value.fertilizer) {
-        const maxUsage = Math.max(...newFilteredFarms.map(f => f.fertilizer_usage || 0))
-        const usage = farm.fertilizer_usage || 0
-        fillOpacity = usage > 0 ? 0.3 + (usage / maxUsage) * 0.7 : 0.3
-        if (!layers.value.markets) {
-          fillColor = '#10b981'
+        const maxVolume = Math.max(...newFilteredFarms.map(f => f.fertilizer_volume || 0))
+        const volume = farm.fertilizer_volume || 0
+        
+        if (maxVolume > 0 && volume > 0) {
+          const intensity = volume / maxVolume
+          // Map fertilizer intensity to opacity: 0.3 (light) to 0.95 (dark)
+          fillOpacity = 0.3 + (intensity * 0.65)
+        } else {
+          // No fertilizer data - very low opacity (transparent)
+          fillOpacity = 0.2
         }
       }
       
-      // Apply pesticide size if layer is active
+      // Step 3: Adjust size based on Pesticide layer
       if (layers.value.pesticide) {
-        const maxUsage = Math.max(...newFilteredFarms.map(f => f.pesticide_usage || 0))
-        const usage = farm.pesticide_usage || 0
-        radius = usage > 0 ? 4 + (usage / maxUsage) * 8 : 4
-        if (!layers.value.markets && !layers.value.fertilizer) {
-          fillColor = '#f59e0b'
+        const maxVolume = Math.max(...newFilteredFarms.map(f => f.pesticide_volume || 0))
+        const volume = farm.pesticide_volume || 0
+        
+        if (maxVolume > 0 && volume > 0) {
+          // Scale radius from 5px (min) to 18px (max)
+          radius = 5 + (volume / maxVolume) * 13
+        } else {
+          radius = 5  // Minimum size for no data
         }
       }
       

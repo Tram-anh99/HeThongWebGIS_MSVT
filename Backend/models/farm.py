@@ -28,6 +28,10 @@ class VungTrong(Base, TimestampMixin):
     latitude = Column(Numeric(10, 6), nullable=True)
     longitude = Column(Numeric(10, 6), nullable=True)
     
+    # Farm input data (fertilizer and pesticide volumes in kg)
+    fertilizer_volume = Column(Numeric(10, 2), default=0)
+    pesticide_volume = Column(Numeric(10, 2), default=0)
+    
     # Relationships
     cay_trong = relationship("LoaiCayTrong", backref="vung_trong_list")
     lich_su = relationship("LichSuCanhTac", back_populates="vung_trong")

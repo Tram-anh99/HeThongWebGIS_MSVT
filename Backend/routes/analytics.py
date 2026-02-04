@@ -548,26 +548,46 @@ async def get_farms_with_layers(
     Get all farms with aggregated input usage data for layer visualization
     
     Returns farms with:
-    - fertilizer_usage: count of fertilizer applications
-    - pesticide_usage: count of pesticide applications
+    - fertilizer_volume: total volume of fertilizer applications (in kg)
+    - pesticide_volume: total volume of pesticide applications (in liters)
     - Coordinates for mapping
     """
+    
+    def parse_volume(volume_str):
+        """Parse volume string to float"""
+        if not volume_str:
+            return 0.0
+        try:
+            # Remove common non-numeric characters and convert to float
+            cleaned = str(volume_str).strip().replace(',', '.')
+            import re
+            match = re.search(r'\d+\.?\d*', cleaned)
+            if match:
+                return float(match.group())
+            return 0.0
+        except:
+            return 0.0
+    
     # Get all farms with basic info
     farms = db.query(VungTrong).all()
     
     result = []
     for farm in farms:
-        # Aggregate fertilizer usage
-        fertilizer_count = db.query(func.count(LichSuCanhTac.id)).filter(
+        # Aggregate fertilizer volume
+        fertilizer_records = db.query(LichSuCanhTac).filter(
             LichSuCanhTac.vung_trong_id == farm.id,
             LichSuCanhTac.phan_bon_id.isnot(None)
-        ).scalar() or 0
+        ).all()
         
-        # Aggregate pesticide usage
-        pesticide_count = db.query(func.count(LichSuCanhTac.id)).filter(
+        fertilizer_volume = sum(parse_volume(rec.lieu_luong) for rec in fertilizer_records)
+        
+        # Aggregate pesticide volume
+        pesticide_records = db.query(LichSuCanhTac).filter(
             LichSuCanhTac.vung_trong_id == farm.id,
             LichSuCanhTac.thuoc_bvtv_id.isnot(None)
-        ).scalar() or 0
+        ).all()
+        
+        pesticide_volume = sum(parse_volume(rec.lieu_luong) for rec in pesticide_records)
         
         result.append({
             "id": farm.id,
@@ -576,13 +596,17 @@ async def get_farms_with_layers(
             "tinh_name": farm.tinh_name,
             "huyen_name": farm.huyen_name,
             "thi_truong_xuat_khau": farm.thi_truong_xuat_khau,
-            "latitude": float(farm.latitude) if farm.latitude else 13.5 + (farm.id % 100) * 0.1,  # Mock coords in Vietnam
-            "longitude": float(farm.longitude) if farm.longitude else 108.0 + (farm.id % 100) * 0.1,
-            "fertilizer_usage": fertilizer_count,
-            "pesticide_usage": pesticide_count
+            "cay_trong": getattr(farm, 'cay_trong', None),
+            "dien_tich": float(farm.dien_tich) if farm.dien_tich else 0,
+            "latitude": float(farm.latitude) if farm.latitude else None,
+            "longitude": float(farm.longitude) if farm.longitude else None,
+            "fertilizer_volume": round(fertilizer_volume, 2),  # in kg
+            "pesticide_volume": round(pesticide_volume, 2),     # in liters
+            "nong_dan_count": 1  # Placeholder for farmer count
         })
     
     return {"data": result}
+
 
 
 @router.get("/farms/by-province/{province_name}")

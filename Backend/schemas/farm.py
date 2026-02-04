@@ -20,6 +20,9 @@ class FarmBase(BaseModel):
     # GPS Coordinates
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
+    # Farm input data (kg)
+    fertilizer_volume: Optional[Decimal] = None
+    pesticide_volume: Optional[Decimal] = None
 
 
 class FarmCreate(FarmBase):
@@ -41,6 +44,9 @@ class FarmUpdate(BaseModel):
     # GPS Coordinates
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
+    # Farm input data (kg)
+    fertilizer_volume: Optional[Decimal] = None
+    pesticide_volume: Optional[Decimal] = None
 
 
 class FarmResponse(FarmBase):
