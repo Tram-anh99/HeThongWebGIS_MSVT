@@ -466,12 +466,27 @@ const filteredCropsByFarmData = computed(() => {
 })
 
 const cropsByFarmOption = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} vùng ({d}%)' },
-  legend: { orient: 'vertical', left: 'left', top: '10%' },
+  tooltip: { 
+    trigger: 'item', 
+    formatter: '{b}: {c} vùng ({d}%)' 
+  },
+  legend: { 
+    orient: 'vertical', 
+    left: 'left', 
+    top: '10%',
+    textStyle: { fontSize: 12 },
+    formatter: (name) => {
+      const item = filteredCropsByFarmData.value.find(d => d.name === name)
+      return item ? `${name}: ${item.value} vùng` : name
+    }
+  },
   series: [{
     name: 'Cây trồng',
     type: 'pie',
     radius: '60%',
+    label: {
+      formatter: '{b}\n{d}%'
+    },
     data: filteredCropsByFarmData.value.length > 0 ? filteredCropsByFarmData.value : [
       { value: 1, name: 'Không có dữ liệu' }
     ],
@@ -513,10 +528,26 @@ const filteredFertilizerUsageData = computed(() => {
 })
 
 const fertilizerUsageOption = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} vùng ({d}%)' },
-  legend: { bottom: '5%', left: 'center' },
+  tooltip: { 
+    trigger: 'item', 
+    formatter: '{b}: {c} vùng ({d}%)' 
+  },
+  legend: { 
+    bottom: '5%', 
+    left: 'center',
+    textStyle: { fontSize: 13, fontWeight: 'bold' },
+    formatter: (name) => {
+      const item = filteredFertilizerUsageData.value.find(d => d.name === name)
+      return item ? `${name}: ${item.value} vùng` : name
+    }
+  },
   series: [{
-    name: 'Phân bón', type: 'pie', radius: ['40%', '70%'],
+    name: 'Phân bón', 
+    type: 'pie', 
+    radius: ['40%', '70%'],
+    label: {
+      formatter: '{b}\n{c} vùng\n({d}%)'
+    },
     data: filteredFertilizerUsageData.value.length > 0 
       ? filteredFertilizerUsageData.value 
       : [{ value: 1, name: 'Không có dữ liệu' }],
@@ -558,10 +589,26 @@ const filteredPesticideUsageData = computed(() => {
 })
 
 const pesticideUsageOption = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} vùng ({d}%)' },
-  legend: { bottom: '5%', left: 'center' },
+  tooltip: { 
+    trigger: 'item', 
+    formatter: '{b}: {c} vùng ({d}%)' 
+  },
+  legend: { 
+    bottom: '5%', 
+    left: 'center',
+    textStyle: { fontSize: 13, fontWeight: 'bold' },
+    formatter: (name) => {
+      const item = filteredPesticideUsageData.value.find(d => d.name === name)
+      return item ? `${name}: ${item.value} vùng` : name
+    }
+  },
   series: [{
-    name: 'Thuốc BVTV', type: 'pie', radius: ['40%', '70%'],
+    name: 'Thuốc BVTV', 
+    type: 'pie', 
+    radius: ['40%', '70%'],
+    label: {
+      formatter: '{b}\n{c} vùng\n({d}%)'
+    },
     data: filteredPesticideUsageData.value.length > 0 
       ? filteredPesticideUsageData.value 
       : [{ value: 1, name: 'Không có dữ liệu' }],
@@ -569,28 +616,135 @@ const pesticideUsageOption = computed(() => ({
   }]
 }))
 
+// Compute Crop x Market data from filtered farms
+const filteredCropMarketData = computed(() => {
+  const farms = filteredFarms.value
+  if (farms.length === 0) {
+    return { markets: [], series: [] }
+  }
+  
+  // Get unique markets and crops
+  const markets = [...new Set(farms.map(f => f.thi_truong_xuat_khau || 'Khác'))].sort()
+  const crops = [...new Set(farms.map(f => f.cay_trong || 'Khác'))].sort()
+  
+  // Build series data for each crop
+  const series = crops.map(crop => {
+    const data = markets.map(market => {
+      return farms.filter(f => 
+        (f.cay_trong || 'Khác') === crop && 
+        (f.thi_truong_xuat_khau || 'Khác') === market
+      ).length
+    })
+    
+    return {
+      name: crop,
+      type: 'line',
+      data: data,
+      smooth: true
+    }
+  })
+  
+  return { markets, series }
+})
+
 const cropMarketOption = computed(() => ({
   tooltip: { trigger: 'axis' },
-  legend: { data: cropMarketData.value.series.map(s => s.name), bottom: '5%' },
+  legend: { 
+    data: filteredCropMarketData.value.series.map(s => s.name), 
+    bottom: '5%',
+    textStyle: { fontSize: 12 }
+  },
   grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
-  xAxis: { type: 'category', boundaryGap: false, data: cropMarketData.value.markets },
+  xAxis: { 
+    type: 'category', 
+    boundaryGap: false, 
+    data: filteredCropMarketData.value.markets 
+  },
   yAxis: { type: 'value', name: 'Số vùng trồng' },
-  series: cropMarketData.value.series
+  series: filteredCropMarketData.value.series
 }))
 
+// Compute Fruit x Input data from filtered farms
+const filteredFruitInputData = computed(() => {
+  const farms = filteredFarms.value
+  if (farms.length === 0) {
+    return { fruits: [], fruit_counts: [], fertilizer_usage: [], pesticide_usage: [] }
+  }
+  
+  // Group by crop type
+  const cropStats = {}
+  farms.forEach(farm => {
+    const crop = farm.cay_trong || 'Khác'
+    if (!cropStats[crop]) {
+      cropStats[crop] = {
+        count: 0,
+        totalFertilizer: 0,
+        totalPesticide: 0
+      }
+    }
+    cropStats[crop].count++
+    cropStats[crop].totalFertilizer += parseFloat(farm.fertilizer_volume) || 0
+    cropStats[crop].totalPesticide += parseFloat(farm.pesticide_volume) || 0
+  })
+  
+  // Sort by count and get arrays
+  const sortedCrops = Object.entries(cropStats)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10) // Top 10 crops
+  
+  return {
+    fruits: sortedCrops.map(([crop]) => crop),
+    fruit_counts: sortedCrops.map(([_, stats]) => stats.count),
+    fertilizer_usage: sortedCrops.map(([_, stats]) => 
+      Math.round(stats.totalFertilizer / stats.count)
+    ),
+    pesticide_usage: sortedCrops.map(([_, stats]) => 
+      Math.round(stats.totalPesticide / stats.count)
+    )
+  }
+})
+
 const fruitInputOption = computed(() => ({
-  tooltip: { trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#999' } } },
-  legend: { data: ['Số vùng trồng', 'Phân bón (kg)', 'Thuốc BVTV (lần)'], bottom: '5%' },
+  tooltip: { 
+    trigger: 'axis', 
+    axisPointer: { type: 'cross', crossStyle: { color: '#999' } } 
+  },
+  legend: { 
+    data: ['Số vùng trồng', 'Phân bón TB (kg)', 'Thuốc BVTV TB (kg)'], 
+    bottom: '5%',
+    textStyle: { fontSize: 12 }
+  },
   grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
-  xAxis: { type: 'category', data: fruitInputData.value.fruits, axisPointer: { type: 'shadow' } },
+  xAxis: { 
+    type: 'category', 
+    data: filteredFruitInputData.value.fruits, 
+    axisPointer: { type: 'shadow' } 
+  },
   yAxis: [
     { type: 'value', name: 'Số vùng', axisLabel: { formatter: '{value}' } },
-    { type: 'value', name: 'Vật tư', axisLabel: { formatter: '{value}' } }
+    { type: 'value', name: 'Vật tư (kg)', axisLabel: { formatter: '{value}' } }
   ],
   series: [
-    { name: 'Số vùng trồng', type: 'bar', data: fruitInputData.value.fruit_counts, itemStyle: { color: '#5470c6' } },
-    { name: 'Phân bón (kg)', type: 'line', yAxisIndex: 1, data: fruitInputData.value.fertilizer_usage, itemStyle: { color: '#91cc75' } },
-    { name: 'Thuốc BVTV (lần)', type: 'line', yAxisIndex: 1, data: fruitInputData.value.pesticide_usage, itemStyle: { color: '#fac858' } }
+    { 
+      name: 'Số vùng trồng', 
+      type: 'bar', 
+      data: filteredFruitInputData.value.fruit_counts, 
+      itemStyle: { color: '#5470c6' } 
+    },
+    { 
+      name: 'Phân bón TB (kg)', 
+      type: 'line', 
+      yAxisIndex: 1, 
+      data: filteredFruitInputData.value.fertilizer_usage, 
+      itemStyle: { color: '#91cc75' } 
+    },
+    { 
+      name: 'Thuốc BVTV TB (kg)', 
+      type: 'line', 
+      yAxisIndex: 1, 
+      data: filteredFruitInputData.value.pesticide_usage, 
+      itemStyle: { color: '#fac858' } 
+    }
   ]
 }))
 
@@ -641,23 +795,7 @@ const fetchTopOwners = async () => {
 }
 
 
-const fetchCropMarketData = async () => {
-  try {
-    const response = await analyticsService.getCropMarketRelationship()
-    cropMarketData.value = response.data
-  } catch (error) {
-    console.log('CropMarket data:', error.message)
-  }
-}
 
-const fetchFruitInputData = async () => {
-  try {
-    const response = await analyticsService.getFruitInputCorrelation()
-    fruitInputData.value = response.data
-  } catch (error) {
-    console.log('FruitInput data:', error.message)
-  }
-}
 
 const fetchFertilizerUsage = async () => {
   try {
@@ -878,7 +1016,7 @@ const refreshData = async () => {
     await Promise.all([
       fetchKPIData(), fetchAlertData(), fetchMarketData(),
       fetchInputUsageData(), fetchTopOwners(),
-      fetchRevokedAlerts(), fetchCropMarketData(), fetchFruitInputData(),
+      fetchRevokedAlerts(),
       fetchFertilizerUsage(), fetchPesticideUsage()
     ])
   } catch (error) {
