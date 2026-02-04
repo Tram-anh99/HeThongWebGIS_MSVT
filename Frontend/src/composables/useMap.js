@@ -224,10 +224,263 @@ export function useMap(mapContainerId) {
         geoJsonLayers.value = []
     }
 
+    // ========== LAYER GROUPS FOR INTERACTIVE DASHBOARD ==========
+    const layerGroups = ref({
+        farms: null,
+        markets: null,
+        fertilizer: null,
+        pesticide: null,
+        provinces: null
+    })
+
+    /**
+     * Create layer group for farms (default view)
+     */
+    const createFarmsLayer = (farms, onFarmClick = null) => {
+        if (layerGroups.value.farms) {
+            map.value.removeLayer(layerGroups.value.farms)
+        }
+
+        const farmMarkers = farms.map(farm => {
+            const marker = L.circleMarker([farm.latitude, farm.longitude], {
+                radius: 8,
+                fillColor: '#3b82f6',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            })
+
+            marker.bindPopup(`
+                <div style="min-width: 200px">
+                    <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px">${farm.ma_vung}</h3>
+                    <p style="margin: 4px 0; color: #6b7280">${farm.ten_vung || 'N/A'}</p>
+                    <p style="margin: 4px 0; font-size: 14px"><strong>Tỉnh:</strong> ${farm.tinh_name}</p>
+                    <p style="margin: 4px 0; font-size: 14px"><strong>Thị trường:</strong> ${farm.thi_truong_xuat_khau || 'N/A'}</p>
+                </div>
+            `)
+
+            if (onFarmClick) {
+                marker.on('click', () => onFarmClick(farm))
+            }
+
+            return marker
+        })
+
+        layerGroups.value.farms = L.layerGroup(farmMarkers)
+        return layerGroups.value.farms
+    }
+
+    /**
+     * Create layer group for markets (color-coded)
+     */
+    const createMarketsLayer = (farms, onFarmClick = null) => {
+        if (layerGroups.value.markets) {
+            map.value.removeLayer(layerGroups.value.markets)
+        }
+
+        const marketColors = {
+            'Trung Quốc': '#ef4444',
+            'USA': '#3b82f6',
+            'Úc/NZ': '#10b981',
+            'Úc': '#10b981',
+            'New Zealand': '#10b981'
+        }
+
+        const marketMarkers = farms.map(farm => {
+            const color = marketColors[farm.thi_truong_xuat_khau] || '#9ca3af'
+
+            const marker = L.circleMarker([farm.latitude, farm.longitude], {
+                radius: 8,
+                fillColor: color,
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            })
+
+            marker.bindPopup(`
+                <div style="min-width: 200px">
+                    <h3 style="margin: 0 0 8px 0">${farm.ma_vung}</h3>
+                    <p style="margin: 4px 0"><strong>Thị trường:</strong> 
+                        <span style="color: ${color}; font-weight: bold">${farm.thi_truong_xuat_khau || 'Khác'}</span>
+                    </p>
+                </div>
+            `)
+
+            if (onFarmClick) {
+                marker.on('click', () => onFarmClick(farm))
+            }
+
+            return marker
+        })
+
+        layerGroups.value.markets = L.layerGroup(marketMarkers)
+        return layerGroups.value.markets
+    }
+
+    /**
+     * Create layer group for fertilizer usage (opacity-based)
+     */
+    const createFertilizerLayer = (farmsWithUsage, onFarmClick = null) => {
+        if (layerGroups.value.fertilizer) {
+            map.value.removeLayer(layerGroups.value.fertilizer)
+        }
+
+        const maxUsage = Math.max(...farmsWithUsage.map(f => f.fertilizer_usage || 0).filter(v => v > 0)) || 1
+
+        const fertilizerMarkers = farmsWithUsage.map(farm => {
+            const usage = farm.fertilizer_usage || 0
+            const opacity = usage > 0 ? 0.3 + (usage / maxUsage) * 0.7 : 0.3
+
+            const marker = L.circleMarker([farm.latitude, farm.longitude], {
+                radius: 8,
+                fillColor: '#10b981',
+                color: '#ffffff',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: opacity
+            })
+
+            marker.bindPopup(`
+                <div style="min-width: 200px">
+                    <h3 style="margin: 0 0 8px 0">${farm.ma_vung}</h3>
+                    <p style="margin: 4px 0"><strong>Phân bón:</strong> ${usage.toFixed(1)} lượt sử dụng</p>
+                    <p style="margin: 4px 0; font-size: 12px; color: #6b7280">Độ đậm: ${(opacity * 100).toFixed(0)}%</p>
+                </div>
+            `)
+
+            if (onFarmClick) {
+                marker.on('click', () => onFarmClick(farm))
+            }
+
+            return marker
+        })
+
+        layerGroups.value.fertilizer = L.layerGroup(fertilizerMarkers)
+        return layerGroups.value.fertilizer
+    }
+
+    /**
+     * Create layer group for pesticide usage (size-based)
+     */
+    const createPesticideLayer = (farmsWithUsage, onFarmClick = null) => {
+        if (layerGroups.value.pesticide) {
+            map.value.removeLayer(layerGroups.value.pesticide)
+        }
+
+        const maxUsage = Math.max(...farmsWithUsage.map(f => f.pesticide_usage || 0).filter(v => v > 0)) || 1
+
+        const pesticideMarkers = farmsWithUsage.map(farm => {
+            const usage = farm.pesticide_usage || 0
+            const radius = usage > 0 ? 5 + (usage / maxUsage) * 10 : 5
+
+            const marker = L.circleMarker([farm.latitude, farm.longitude], {
+                radius: radius,
+                fillColor: '#f59e0b',
+                color: '#ffffff',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.6
+            })
+
+            marker.bindPopup(`
+                <div style="min-width: 200px">
+                    <h3 style="margin: 0 0 8px 0">${farm.ma_vung}</h3>
+                    <p style="margin: 4px 0"><strong>Thuốc BVTV:</strong> ${usage.toFixed(1)} lượt sử dụng</p>
+                    <p style="margin: 4px 0; font-size: 12px; color: #6b7280">Kích thước: ${radius.toFixed(1)}px</p>
+                </div>
+            `)
+
+            if (onFarmClick) {
+                marker.on('click', () => onFarmClick(farm))
+            }
+
+            return marker
+        })
+
+        layerGroups.value.pesticide = L.layerGroup(pesticideMarkers)
+        return layerGroups.value.pesticide
+    }
+
+    /**
+     * Load province boundaries and add click handlers
+     */
+    const loadProvinceBoundaries = async (onProvinceClick = null) => {
+        try {
+            // Load Vietnam province GeoJSON
+            const response = await fetch('/data/vietnam-provinces.json')
+            const data = await response.json()
+
+            if (layerGroups.value.provinces) {
+                map.value.removeLayer(layerGroups.value.provinces)
+            }
+
+            layerGroups.value.provinces = L.geoJSON(data, {
+                style: {
+                    color: '#2563eb',
+                    weight: 2,
+                    opacity: 0.4,
+                    fillColor: '#dbeafe',
+                    fillOpacity: 0.05
+                },
+                onEachFeature: (feature, layer) => {
+                    const provinceName = feature.properties.name || feature.properties.NAME_1
+
+                    layer.on('mouseover', function () {
+                        this.setStyle({
+                            fillOpacity: 0.2,
+                            weight: 3
+                        })
+                    })
+
+                    layer.on('mouseout', function () {
+                        this.setStyle({
+                            fillOpacity: 0.05,
+                            weight: 2
+                        })
+                    })
+
+                    if (onProvinceClick) {
+                        layer.on('click', () => {
+                            onProvinceClick(provinceName)
+                        })
+                    }
+
+                    layer.bindTooltip(provinceName, {
+                        permanent: false,
+                        direction: 'center',
+                        className: 'province-tooltip'
+                    })
+                }
+            }).addTo(map.value)
+
+            return layerGroups.value.provinces
+        } catch (error) {
+            console.error('Failed to load province boundaries:', error)
+            return null
+        }
+    }
+
+    /**
+     * Toggle layer visibility
+     */
+    const toggleLayerVisibility = (layerName, visible) => {
+        const layer = layerGroups.value[layerName]
+        if (!layer || !map.value) return
+
+        if (visible) {
+            map.value.addLayer(layer)
+        } else {
+            map.value.removeLayer(layer)
+        }
+    }
+
     return {
         map,
         markers,
         geoJsonLayers,
+        layerGroups,
 
         initMap,
         addMarker,
@@ -237,6 +490,14 @@ export function useMap(mapContainerId) {
         flyTo,
         addGeoJsonLayer,
         loadGeoJson,
-        clearGeoJsonLayers
+        clearGeoJsonLayers,
+
+        // New layer methods
+        createFarmsLayer,
+        createMarketsLayer,
+        createFertilizerLayer,
+        createPesticideLayer,
+        loadProvinceBoundaries,
+        toggleLayerVisibility
     }
 }

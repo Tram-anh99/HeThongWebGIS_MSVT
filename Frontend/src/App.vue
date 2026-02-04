@@ -41,6 +41,14 @@
             </router-link>
             <router-link
               v-if="isAuthenticated && user && user.role === 'admin'"
+              to="/dashboard"
+              class="px-4 py-2 rounded-lg hover:bg-primary-600 transition"
+              :class="{ 'bg-primary-600': $route.path === '/dashboard' }"
+            >
+              Dashboard
+            </router-link>
+            <router-link
+              v-if="isAuthenticated && user && user.role === 'admin'"
               to="/users"
               class="px-4 py-2 rounded-lg hover:bg-primary-600 transition"
               :class="{ 'bg-primary-600': $route.path === '/users' }"

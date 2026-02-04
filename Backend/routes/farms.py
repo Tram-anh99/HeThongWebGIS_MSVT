@@ -4,10 +4,11 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database import get_db
-from models import User, VungTrong, LichSuCanhTac
+from models import User, VungTrong, LichSuCanhTac, VuMua
 from schemas import FarmCreate, FarmUpdate, FarmResponse, FarmWithHistory, HistoryResponse, PaginatedResponse
 from utils.auth import get_current_active_user
 from utils.pagination import paginate
+from sqlalchemy import func
 
 router = APIRouter(prefix="/farms", tags=["Vùng trồng"])
 
@@ -50,6 +51,20 @@ async def list_farms(
     
     # Paginate
     result = paginate(query, page, page_size)
+    
+    # Annotate each farm with active_seasons count
+    active_statuses = ['đang trồng', 'đang phát triển', 'sắp thu hoạch']
+    for farm in result['items']:
+        # Count active cultivation seasons
+        active_count = db.query(func.count(VuMua.id))\
+            .filter(
+                VuMua.vung_trong_id == farm.id,
+                VuMua.trang_thai.in_(active_statuses)
+            )\
+            .scalar()
+        
+        # Add to farm object
+        farm.active_seasons = active_count or 0
     
     return PaginatedResponse(**result)
 

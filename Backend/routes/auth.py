@@ -19,6 +19,21 @@ from config import settings
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+# Dependency to require admin role
+async def require_admin(current_user: User = Depends(get_current_active_user)):
+    """
+    Dependency that requires the current user to have admin role
+    
+    Raises HTTPException if user is not an admin
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: admin role required"
+        )
+    return current_user
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """

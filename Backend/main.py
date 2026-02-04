@@ -12,7 +12,7 @@ from config import settings
 from database import engine, Base
 
 # Import all routes
-from routes import auth, farms, history, categories, qr, users
+from routes import auth, farms, history, categories, qr, users, analytics
 
 # Create FastAPI app
 app = FastAPI(
@@ -40,6 +40,7 @@ app.include_router(history.router, prefix=settings.API_PREFIX)
 app.include_router(categories.router, prefix=settings.API_PREFIX)
 app.include_router(qr.router, prefix=settings.API_PREFIX)
 app.include_router(users.router, prefix=settings.API_PREFIX)
+app.include_router(analytics.router, prefix=settings.API_PREFIX)
 
 
 # ========== Root Endpoint ==========

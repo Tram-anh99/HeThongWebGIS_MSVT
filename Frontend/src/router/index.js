@@ -47,6 +47,16 @@ const routes = [
         }
     },
     {
+        path: '/dashboard',
+        name: 'Dashboard',
+        component: () => import('../views/DashboardView.vue'),
+        meta: {
+            title: 'Bảng điều khiển Admin',
+            requiresAuth: true,
+            role: 'admin'
+        }
+    },
+    {
         path: '/trace/:ma_vung',
         name: 'Trace',
         component: () => import('../views/TraceView.vue'),

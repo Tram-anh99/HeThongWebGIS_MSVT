@@ -47,6 +47,7 @@ class FarmResponse(FarmBase):
     """Schema for farm response"""
     id: int
     created_at: datetime
+    active_seasons: Optional[int] = 0  # Count of active cultivation seasons
     
     class Config:
         from_attributes = True
