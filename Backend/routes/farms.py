@@ -1,6 +1,6 @@
 # Farm Routes (Vùng trồng)
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from database import get_db
@@ -30,7 +30,11 @@ async def list_farms(
     - **search**: Tìm kiếm theo mã vùng hoặc tên
     - **tinh**: Lọc theo tỉnh
     """
-    query = db.query(VungTrong)
+    query = db.query(VungTrong).options(
+        joinedload(VungTrong.cay_trong),
+        joinedload(VungTrong.phan_bon),
+        joinedload(VungTrong.thuoc_bvtv)
+    )
     
     # Filter by user role
     if current_user.role != "admin":

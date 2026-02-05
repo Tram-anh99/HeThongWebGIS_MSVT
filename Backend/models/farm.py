@@ -16,6 +16,8 @@ class VungTrong(Base, TimestampMixin):
     
     # Foreign Keys
     cay_trong_id = Column(Integer, ForeignKey("loai_cay_trong.id"))
+    phan_bon_id = Column(Integer, ForeignKey("phan_bon.id"), nullable=True)
+    thuoc_bvtv_id = Column(Integer, ForeignKey("thuoc_bvtv.id"), nullable=True)
     chu_so_huu_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     # Temporary denormalized fields (will be FK when boundaries imported)
@@ -34,6 +36,8 @@ class VungTrong(Base, TimestampMixin):
     
     # Relationships
     cay_trong = relationship("LoaiCayTrong", backref="vung_trong_list")
+    phan_bon = relationship("PhanBon", backref="vung_trong_list")
+    thuoc_bvtv = relationship("ThuocBVTV", backref="vung_trong_list")
     lich_su = relationship("LichSuCanhTac", back_populates="vung_trong")
     vu_mua = relationship("VuMua", back_populates="vung_trong")
     bao_dong = relationship("BaoDong", back_populates="vung_trong")

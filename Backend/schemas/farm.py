@@ -3,7 +3,29 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
+from decimal import Decimal
 
+
+class CropType(BaseModel):
+    id: int
+    ten_cay: str
+
+    class Config:
+        from_attributes = True
+
+class Fertilizer(BaseModel):
+    id: int
+    ten_phan_bon: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class Pesticide(BaseModel):
+    id: int
+    ten_thuoc: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class FarmBase(BaseModel):
     """Base farm schema"""
@@ -54,6 +76,11 @@ class FarmResponse(FarmBase):
     id: int
     created_at: datetime
     active_seasons: Optional[int] = 0  # Count of active cultivation seasons
+    
+    # Nested relationships
+    cay_trong: Optional[CropType] = None
+    phan_bon: Optional[Fertilizer] = None
+    thuoc_bvtv: Optional[Pesticide] = None
     
     class Config:
         from_attributes = True

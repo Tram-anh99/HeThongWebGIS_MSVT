@@ -452,17 +452,26 @@ const filteredCropsByFarmData = computed(() => {
   const farms = filteredFarms.value
   if (farms.length === 0) return []
   
-  // Group by crop type (cay_trong)
+  // Group by crop type (cay_trong name)
   const cropCounts = {}
   farms.forEach(farm => {
-    const crop = farm.cay_trong || 'Khác'
-    cropCounts[crop] = (cropCounts[crop] || 0) + 1
+    // If cay_trong is object, use ten_cay. If string/id (legacy), handle gracefully
+    let cropName = 'Khác'
+    if (farm.cay_trong && typeof farm.cay_trong === 'object') {
+      cropName = farm.cay_trong.ten_cay || 'Khác'
+    } else if (farm.cay_trong_name) {
+       cropName = farm.cay_trong_name
+    }
+    
+    cropCounts[cropName] = (cropCounts[cropName] || 0) + 1
   })
   
-  return Object.entries(cropCounts).map(([name, value]) => ({
-    name,
-    value
-  }))
+  return Object.entries(cropCounts)
+    .sort((a, b) => b[1] - a[1]) // Sort by count desc
+    .map(([name, value]) => ({
+      name,
+      value
+    }))
 })
 
 const cropsByFarmOption = computed(() => ({
@@ -471,21 +480,37 @@ const cropsByFarmOption = computed(() => ({
     formatter: '{b}: {c} vùng ({d}%)' 
   },
   legend: { 
+    type: 'scroll',  // Enable scrollbar
     orient: 'vertical', 
-    left: 'left', 
+    right: '10%',  // Move legend to right side
     top: '10%',
-    textStyle: { fontSize: 12 },
+    bottom: '10%',
+    textStyle: { 
+      fontSize: 12,
+      width: 150,  // Max width before wrapping
+      overflow: 'break'  // Allow text to wrap
+    },
     formatter: (name) => {
       const item = filteredCropsByFarmData.value.find(d => d.name === name)
-      return item ? `${name}: ${item.value} vùng` : name
+      return item ? `${name}: ${item.value}` : name
     }
+  },
+  grid: {
+    left: '5%',
+    right: '30%',  // Make space for legend
+    top: '10%',
+    bottom: '10%'
   },
   series: [{
     name: 'Cây trồng',
     type: 'pie',
+    center: ['40%', '50%'],  // Move chart to left
     radius: '60%',
     label: {
-      formatter: '{b}\n{d}%'
+      show: false
+    },
+    labelLine: {
+      show: false
     },
     data: filteredCropsByFarmData.value.length > 0 ? filteredCropsByFarmData.value : [
       { value: 1, name: 'Không có dữ liệu' }
@@ -500,30 +525,25 @@ const filteredFertilizerUsageData = computed(() => {
   if (farms.length === 0) return []
   
   // Aggregate fertilizer volume into ranges
-  const volumeRanges = {
-    '0-50 kg': 0,
-    '50-100 kg': 0,
-    '100-200 kg': 0,
-    '200+ kg': 0
-  }
+  // Group by fertilizer type
+  const counts = {}
   
   farms.forEach(farm => {
-    const volume = farm.fertilizer_volume || 0
-    if (volume === 0) {
-      // Skip farms with no fertilizer data
-    } else if (volume < 50) {
-      volumeRanges['0-50 kg']++
-    } else if (volume < 100) {
-      volumeRanges['50-100 kg']++
-    } else if (volume < 200) {
-      volumeRanges['100-200 kg']++
+    let name = 'Chưa xác định'
+    if (farm.phan_bon && typeof farm.phan_bon === 'object') {
+       name = farm.phan_bon.ten_phan_bon || 'Chưa xác định'
+    } else if (farm.fertilizer_volume > 0) {
+       // Fallback for old data with volume but no type
+       name = 'Khác' 
     } else {
-      volumeRanges['200+ kg']++
+       return // Skip if no fertilizer used
     }
+    
+    counts[name] = (counts[name] || 0) + 1
   })
   
-  return Object.entries(volumeRanges)
-    .filter(([_, value]) => value > 0)
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }))
 })
 
@@ -533,20 +553,37 @@ const fertilizerUsageOption = computed(() => ({
     formatter: '{b}: {c} vùng ({d}%)' 
   },
   legend: { 
-    bottom: '5%', 
-    left: 'center',
-    textStyle: { fontSize: 13, fontWeight: 'bold' },
+    type: 'scroll',  // Enable scrollbar
+    orient: 'vertical',
+    right: '10%',  // Move to right
+    top: '10%',
+    bottom: '10%',
+    textStyle: { 
+      fontSize: 12,
+      width: 150,  // Max width before wrapping
+      overflow: 'break'  // Allow text to wrap
+    },
     formatter: (name) => {
       const item = filteredFertilizerUsageData.value.find(d => d.name === name)
-      return item ? `${name}: ${item.value} vùng` : name
+      return item ? `${name}: ${item.value}` : name
     }
+  },
+  grid: {
+    left: '5%',
+    right: '30%',
+    top: '10%',
+    bottom: '10%'
   },
   series: [{
     name: 'Phân bón', 
     type: 'pie', 
-    radius: ['40%', '70%'],
+    center: ['40%', '50%'],  // Match chart 1
+    radius: '60%',  // Match chart 1 (solid pie)
     label: {
-      formatter: '{b}\n{c} vùng\n({d}%)'
+      show: false
+    },
+    labelLine: {
+      show: false
     },
     data: filteredFertilizerUsageData.value.length > 0 
       ? filteredFertilizerUsageData.value 
@@ -561,30 +598,25 @@ const filteredPesticideUsageData = computed(() => {
   if (farms.length === 0) return []
   
   // Aggregate pesticide volume into ranges
-  const volumeRanges = {
-    '0-2 lít': 0,
-    '2-5 lít': 0,
-    '5-10 lít': 0,
-    '10+ lít': 0
-  }
+  // Group by pesticide type
+  const counts = {}
   
   farms.forEach(farm => {
-    const volume = farm.pesticide_volume || 0
-    if (volume === 0) {
-      // Skip farms with no pesticide data
-    } else if (volume < 2) {
-      volumeRanges['0-2 lít']++
-    } else if (volume < 5) {
-      volumeRanges['2-5 lít']++
-    } else if (volume < 10) {
-      volumeRanges['5-10 lít']++
+    let name = 'Chưa xác định'
+    if (farm.thuoc_bvtv && typeof farm.thuoc_bvtv === 'object') {
+       name = farm.thuoc_bvtv.ten_thuoc || 'Chưa xác định'
+    } else if (farm.pesticide_volume > 0) {
+       // Fallback for old data
+       name = 'Khác'
     } else {
-      volumeRanges['10+ lít']++
+       return // Skip if no pesticide used
     }
+    
+    counts[name] = (counts[name] || 0) + 1
   })
   
-  return Object.entries(volumeRanges)
-    .filter(([_, value]) => value > 0)
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }))
 })
 
@@ -594,20 +626,37 @@ const pesticideUsageOption = computed(() => ({
     formatter: '{b}: {c} vùng ({d}%)' 
   },
   legend: { 
-    bottom: '5%', 
-    left: 'center',
-    textStyle: { fontSize: 13, fontWeight: 'bold' },
+    type: 'scroll',  // Enable scrollbar
+    orient: 'vertical',
+    right: '10%',  // Move to right
+    top: '10%',
+    bottom: '10%',
+    textStyle: { 
+      fontSize: 12,
+      width: 150,  // Max width before wrapping
+      overflow: 'break'  // Allow text to wrap
+    },
     formatter: (name) => {
       const item = filteredPesticideUsageData.value.find(d => d.name === name)
-      return item ? `${name}: ${item.value} vùng` : name
+      return item ? `${name}: ${item.value}` : name
     }
+  },
+  grid: {
+    left: '5%',
+    right: '30%',
+    top: '10%',
+    bottom: '10%'
   },
   series: [{
     name: 'Thuốc BVTV', 
     type: 'pie', 
-    radius: ['40%', '70%'],
+    center: ['40%', '50%'],  // Match chart 1
+    radius: '60%',  // Match chart 1 (solid pie)
     label: {
-      formatter: '{b}\n{c} vùng\n({d}%)'
+      show: false
+    },
+    labelLine: {
+      show: false
     },
     data: filteredPesticideUsageData.value.length > 0 
       ? filteredPesticideUsageData.value 
@@ -623,21 +672,38 @@ const filteredCropMarketData = computed(() => {
     return { markets: [], series: [] }
   }
   
-  // Get unique markets and crops
+  // Get unique markets and crops - extract crop names properly
   const markets = [...new Set(farms.map(f => f.thi_truong_xuat_khau || 'Khác'))].sort()
-  const crops = [...new Set(farms.map(f => f.cay_trong || 'Khác'))].sort()
+  
+  // Extract crop names from objects
+  const cropNames = farms.map(f => {
+    if (f.cay_trong && typeof f.cay_trong === 'object') {
+      return f.cay_trong.ten_cay || 'Khác'
+    } else if (f.cay_trong_name) {
+      return f.cay_trong_name
+    }
+    return 'Khác'
+  })
+  const crops = [...new Set(cropNames)].sort()
   
   // Build series data for each crop
-  const series = crops.map(crop => {
+  const series = crops.map(cropName => {
     const data = markets.map(market => {
-      return farms.filter(f => 
-        (f.cay_trong || 'Khác') === crop && 
-        (f.thi_truong_xuat_khau || 'Khác') === market
-      ).length
+      return farms.filter(f => {
+        let farmCropName = 'Khác'
+        if (f.cay_trong && typeof f.cay_trong === 'object') {
+          farmCropName = f.cay_trong.ten_cay || 'Khác'
+        } else if (f.cay_trong_name) {
+          farmCropName = f.cay_trong_name
+        }
+        
+        return farmCropName === cropName && 
+               (f.thi_truong_xuat_khau || 'Khác') === market
+      }).length
     })
     
     return {
-      name: crop,
+      name: cropName,
       type: 'line',
       data: data,
       smooth: true
@@ -650,11 +716,12 @@ const filteredCropMarketData = computed(() => {
 const cropMarketOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   legend: { 
+    type: 'scroll',  // Enable scrollbar
     data: filteredCropMarketData.value.series.map(s => s.name), 
     bottom: '5%',
     textStyle: { fontSize: 12 }
   },
-  grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
+  grid: { left: '5%', right: '5%', bottom: '15%', top: '5%', containLabel: true },
   xAxis: { 
     type: 'category', 
     boundaryGap: false, 
@@ -671,20 +738,26 @@ const filteredFruitInputData = computed(() => {
     return { fruits: [], fruit_counts: [], fertilizer_usage: [], pesticide_usage: [] }
   }
   
-  // Group by crop type
+  // Group by crop type - extract crop name properly
   const cropStats = {}
   farms.forEach(farm => {
-    const crop = farm.cay_trong || 'Khác'
-    if (!cropStats[crop]) {
-      cropStats[crop] = {
+    let cropName = 'Khác'
+    if (farm.cay_trong && typeof farm.cay_trong === 'object') {
+      cropName = farm.cay_trong.ten_cay || 'Khác'
+    } else if (farm.cay_trong_name) {
+      cropName = farm.cay_trong_name
+    }
+    
+    if (!cropStats[cropName]) {
+      cropStats[cropName] = {
         count: 0,
         totalFertilizer: 0,
         totalPesticide: 0
       }
     }
-    cropStats[crop].count++
-    cropStats[crop].totalFertilizer += parseFloat(farm.fertilizer_volume) || 0
-    cropStats[crop].totalPesticide += parseFloat(farm.pesticide_volume) || 0
+    cropStats[cropName].count++
+    cropStats[cropName].totalFertilizer += parseFloat(farm.fertilizer_volume) || 0
+    cropStats[cropName].totalPesticide += parseFloat(farm.pesticide_volume) || 0
   })
   
   // Sort by count and get arrays
@@ -710,11 +783,12 @@ const fruitInputOption = computed(() => ({
     axisPointer: { type: 'cross', crossStyle: { color: '#999' } } 
   },
   legend: { 
+    type: 'scroll',  // Enable scrollbar
     data: ['Số vùng trồng', 'Phân bón TB (kg)', 'Thuốc BVTV TB (kg)'], 
     bottom: '5%',
     textStyle: { fontSize: 12 }
   },
-  grid: { left: '3%', right: '4%', bottom: '12%', containLabel: true },
+  grid: { left: '5%', right: '5%', bottom: '15%', top: '5%', containLabel: true },
   xAxis: { 
     type: 'category', 
     data: filteredFruitInputData.value.fruits, 
