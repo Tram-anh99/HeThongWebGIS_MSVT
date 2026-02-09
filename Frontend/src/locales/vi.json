@@ -1,0 +1,104 @@
+{
+    "nav": {
+        "home": "Trang chủ",
+        "map": "Bản đồ",
+        "management": "Quản lý",
+        "dashboard": "Dashboard",
+        "account": "Tài khoản",
+        "feedback": "Góp ý",
+        "farmerFeedback": "Góp ý từ Người dân",
+        "logout": "Đăng xuất"
+    },
+    "dashboard": {
+        "title": "Bảng điều khiển",
+        "totalFarms": "Tổng số vùng trồng",
+        "totalArea": "Tổng diện tích",
+        "totalFertilizer": "Tổng phân bón",
+        "totalPesticide": "Tổng thuốc BVTV",
+        "cropDistribution": "Phân bố cây trồng",
+        "fertilizerUsage": "Sử dụng phân bón",
+        "pesticideUsage": "Sử dụng thuốc BVTV",
+        "noData": "Không có dữ liệu"
+    },
+    "farm": {
+        "management": "Quản lý vùng trồng",
+        "add": "Thêm vùng trồng",
+        "edit": "Sửa vùng trồng",
+        "delete": "Xóa",
+        "code": "Mã vùng",
+        "name": "Tên vùng",
+        "area": "Diện tích",
+        "crop": "Cây trồng",
+        "fertilizer": "Phân bón",
+        "pesticide": "Thuốc BVTV",
+        "province": "Tỉnh/TP",
+        "district": "Quận/Huyện",
+        "commune": "Xã/Phường"
+    },
+    "user": {
+        "management": "Quản lý tài khoản",
+        "add": "Thêm tài khoản",
+        "username": "Username",
+        "email": "Email",
+        "fullName": "Họ tên",
+        "role": "Vai trò",
+        "status": "Trạng thái",
+        "actions": "Thao tác",
+        "active": "Hoạt động",
+        "inactive": "Đã khóa",
+        "admin": "Quản trị viên",
+        "farmer": "Nông dân",
+        "plantDept": "Chi cục Trồng trọt",
+        "pesticideDept": "Chi cục Thuốc BVTV",
+        "borderControl": "Cơ quan Cửa khẩu"
+    },
+    "auth": {
+        "login": "Đăng nhập",
+        "username": "Tên đăng nhập",
+        "password": "Mật khẩu",
+        "forgotPassword": "Quên mật khẩu?",
+        "loginButton": "Đăng nhập"
+    },
+    "feedback": {
+        "title": "Góp ý - Phản hồi",
+        "myFeedback": "Góp ý của tôi",
+        "allFeedback": "Tất cả góp ý",
+        "newFeedback": "Gửi góp ý mới",
+        "subject": "Tiêu đề",
+        "message": "Nội dung",
+        "category": "Loại góp ý",
+        "status": "Trạng thái",
+        "submit": "Gửi góp ý",
+        "adminResponse": "Phản hồi từ Admin",
+        "noResponse": "Chưa có phản hồi",
+        "submittedAt": "Gửi lúc",
+        "respondedAt": "Trả lời lúc",
+        "categories": {
+            "bug": "Báo lỗi",
+            "feature_request": "Đề xuất tính năng",
+            "question": "Câu hỏi",
+            "other": "Khác"
+        },
+        "statuses": {
+            "new": "Mới",
+            "in_progress": "Đang xử lý",
+            "resolved": "Đã giải quyết",
+            "closed": "Đã đóng"
+        }
+    },
+    "common": {
+        "save": "Lưu",
+        "cancel": "Hủy",
+        "edit": "Sửa",
+        "delete": "Xóa",
+        "search": "Tìm kiếm",
+        "filter": "Lọc",
+        "export": "Xuất dữ liệu",
+        "import": "Nhập dữ liệu",
+        "confirm": "Xác nhận",
+        "loading": "Đang tải",
+        "error": "Lỗi",
+        "success": "Thành công",
+        "noResults": "Không có kết quả"
+    }
+}

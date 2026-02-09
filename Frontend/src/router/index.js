@@ -57,6 +57,25 @@ const routes = [
         }
     },
     {
+        path: '/feedback',
+        name: 'MyFeedback',
+        component: () => import('../views/MyFeedbackView.vue'),
+        meta: {
+            title: 'Góp ý của tôi',
+            requiresAuth: true
+        }
+    },
+    {
+        path: '/admin/feedback',
+        name: 'FeedbackManagement',
+        component: () => import('../views/FeedbackManagementView.vue'),
+        meta: {
+            title: 'Quản lý Góp ý',
+            requiresAuth: true,
+            role: 'admin'
+        }
+    },
+    {
         path: '/trace/:ma_vung',
         name: 'Trace',
         component: () => import('../views/TraceView.vue'),

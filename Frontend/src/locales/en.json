@@ -1,0 +1,104 @@
+{
+  "nav": {
+    "home": "Home",
+    "map": "Map",
+    "management": "Management",
+    "dashboard": "Dashboard",
+    "account": "Account",
+    "feedback": "Feedback",
+    "farmerFeedback": "Farmer Feedback",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalFarms": "Total Farms",
+    "totalArea": "Total Area",
+    "totalFertilizer": "Total Fertilizer",
+    "totalPesticide": "Total Pesticide",
+    "cropDistribution": "Crop Distribution",
+    "fertilizerUsage": "Fertilizer Usage",
+    "pesticideUsage": "Pesticide Usage",
+    "noData": "No data available"
+  },
+  "farm": {
+    "management": "Farm Management",
+    "add": "Add Farm",
+    "edit": "Edit Farm",
+    "delete": "Delete",
+    "code": "Farm Code",
+    "name": "Farm Name",
+    "area": "Area",
+    "crop": "Crop",
+    "fertilizer": "Fertilizer",
+    "pesticide": "Pesticide",
+    "province": "Province",
+    "district": "District",
+    "commune": "Commune"
+  },
+  "user": {
+    "management": "User Management",
+    "add": "Add User",
+    "username": "Username",
+    "email": "Email",
+    "fullName": "Full Name",
+    "role": "Role",
+    "status": "Status",
+    "actions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive",
+    "admin": "Administrator",
+    "farmer": "Farmer",
+    "plantDept": "Plant Cultivation Dept",
+    "pesticideDept": "Plant Protection Dept",
+    "borderControl": "Border Control Authority"
+  },
+  "auth": {
+    "login": "Login",
+    "username": "Username",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "loginButton": "Login"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "myFeedback": "My Feedback",
+    "allFeedback": "All Feedback",
+    "newFeedback": "Submit Feedback",
+    "subject": "Subject",
+    "message": "Message",
+    "category": "Category",
+    "status": "Status",
+    "submit": "Submit",
+    "adminResponse": "Admin Response",
+    "noResponse": "No response yet",
+    "submittedAt": "Submitted at",
+    "respondedAt": "Responded at",
+    "categories": {
+      "bug": "Bug Report",
+      "feature_request": "Feature Request",
+      "question": "Question",
+      "other": "Other"
+    },
+    "statuses": {
+      "new": "New",
+      "in_progress": "In Progress",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "confirm": "Confirm",
+    "loading": "Loading",
+    "error": "Error",
+    "success": "Success",
+    "noResults": "No results found"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "nav": {
+    "home": "主页",
+    "map": "地图",
+    "management": "管理",
+    "dashboard": "仪表板",
+    "account": "账户",
+    "feedback": "反馈",
+    "farmerFeedback": "农民反馈",
+    "logout": "登出"
+  },
+  "dashboard": {
+    "title": "仪表板",
+    "totalFarms": "农场总数",
+    "totalArea": "总面积",
+    "totalFertilizer": "肥料总量",
+    "totalPesticide": "农药总量",
+    "cropDistribution": "作物分布",
+    "fertilizerUsage": "化肥用量",
+    "pesticideUsage": "农药用量",
+    "noData": "无数据"
+  },
+  "farm": {
+    "management": "农场管理",
+    "add": "添加农场",
+    "edit": "编辑农场",
+    "delete": "删除",
+    "code": "农场代码",
+    "name": "农场名称",
+    "area": "面积",
+    "crop": "作物",
+    "fertilizer": "肥料",
+    "pesticide": "农药",
+    "province": "省",
+    "district": "区",
+    "commune": "乡"
+  },
+  "user": {
+    "management": "用户管理",
+    "add": "添加用户",
+    "username": "用户名",
+    "email": "电子邮件",
+    "fullName": "全名",
+    "role": "角色",
+    "status": "状态",
+    "actions": "操作",
+    "active": "活跃",
+    "inactive": "非活跃",
+    "admin": "管理员",
+    "farmer": "农民",
+    "plantDept": "种植部门",
+    "pesticideDept": "植物保护部门",
+    "borderControl": "边境管制机构"
+  },
+  "auth": {
+    "login": "登录",
+    "username": "用户名",
+    "password": "密码",
+    "forgotPassword": "忘记密码?",
+    "loginButton": "登录"
+  },
+  "feedback": {
+    "title": "反馈",
+    "myFeedback": "我的反馈",
+    "allFeedback": "所有反馈",
+    "newFeedback": "提交反馈",
+    "subject": "主题",
+    "message": "消息",
+    "category": "类别",
+    "status": "状态",
+    "submit": "提交",
+    "adminResponse": "管理员回复",
+    "noResponse": "尚无回复",
+    "submittedAt": "提交于",
+    "respondedAt": "回复于",
+    "categories": {
+      "bug": "错误报告",
+      "feature_request": "功能请求",
+      "question": "问题",
+      "other": "其他"
+    },
+    "statuses": {
+      "new": "新",
+      "in_progress": "处理中",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "delete": "删除",
+    "search": "搜索",
+    "filter": "筛选",
+    "export": "导出",
+    "import": "导入",
+    "confirm": "确认",
+    "loading": "加载中",
+    "error": "错误",
+    "success": "成功",
+    "noResults": "无结果"
+  }
+}

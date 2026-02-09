@@ -4,7 +4,7 @@ Hệ thống WebGIS Quản lý Mã số Vùng Trồng (MSVT)
 Author: HeThongWebGIS_MSVT
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -12,13 +12,13 @@ from config import settings
 from database import engine, Base
 
 # Import all routes
-from routes import auth, farms, history, categories, qr, users, analytics
+from routes import auth, farms, history, categories, qr, users, analytics, feedback
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.API_TITLE,
     version=settings.API_VERSION,
-    description="API cho hệ thống WebGIS quản lý mã số vùng trồng",
+    description="API cho hệ thống WebGIS Quản lý Mã số Vùng Trồng",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -26,12 +26,15 @@ app = FastAPI(
 # ========== CORS Middleware ==========
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:5173", "http://0.0.0.0:5173"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+
+
 
 # ========== Include Routers ==========
 app.include_router(auth.router, prefix=settings.API_PREFIX)
@@ -41,6 +44,7 @@ app.include_router(categories.router, prefix=settings.API_PREFIX)
 app.include_router(qr.router, prefix=settings.API_PREFIX)
 app.include_router(users.router, prefix=settings.API_PREFIX)
 app.include_router(analytics.router, prefix=settings.API_PREFIX)
+app.include_router(feedback.router, prefix=settings.API_PREFIX)
 
 
 # ========== Root Endpoint ==========

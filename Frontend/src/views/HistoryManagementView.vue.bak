@@ -323,10 +323,6 @@ const deleteRecord = async (record) => {
     alert('Lỗi khi xóa nhật ký: ' + (err.response?.data?.detail || err.message))
   }
 }
-const openEditModal = (record) => editRecord(record)
-
-const confirmDelete = (record) => deleteRecord(record)
-
 
 const viewDetails = (record) => {
   selectedRecord.value = record

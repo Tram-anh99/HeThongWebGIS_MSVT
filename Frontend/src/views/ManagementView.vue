@@ -75,17 +75,8 @@
                   Nhật ký
                 </button>
                 
-                <!-- Farmer can add history directly -->
-                <button
-                  v-if="user && user.role === 'farmer'"
-                  @click="quickAddHistory(farm)"
-                  class="btn-primary py-1 px-3 text-xs flex items-center gap-1"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                  Ghi nhật ký
-                </button>
+                <!-- Quick add history button removed - history is read-only -->
+
                 
                 <!-- Admin Only Actions -->
                 <template v-if="user && user.role === 'admin'">
@@ -157,20 +148,53 @@
               <input v-model="formData.nguoi_dai_dien" type="text" class="input-field" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Xã</label>
-              <input v-model="formData.xa_name" type="text" class="input-field" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">Tỉnh</label>
+              <select v-model="formData.tinh_name" class="input-field" @change="onProvinceChange">
+                <option value="">-- Chọn tỉnh --</option>
+                <option v-for="province in provinces" :key="province" :value="province">
+                  {{ province }}
+                </option>
+              </select>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Huyện</label>
-              <input v-model="formData.huyen_name" type="text" class="input-field" />
+              <select v-model="formData.huyen_name" class="input-field" :disabled="!formData.tinh_name">
+                <option value="">-- Chọn huyện --</option>
+                <option v-for="district in districts" :key="district" :value="district">
+                  {{ district }}
+                </option>
+              </select>
+              <p v-if="!formData.tinh_name" class="text-xs text-gray-500 mt-1">Vui lòng chọn tỉnh trước</p>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Tỉnh</label>
-              <input v-model="formData.tinh_name" type="text" class="input-field" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">Xã</label>
+              <input v-model="formData.xa_name" type="text" class="input-field" placeholder="Nhập tên xã/phường" />
+              <p class="text-xs text-gray-500 mt-1">Nhập thủ công tên xã/phường</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Thị trường xuất khẩu</label>
-              <input v-model="formData.thi_truong_xuat_khau" type="text" class="input-field" />
+              <select v-model="formData.thi_truong_xuat_khau" class="input-field">
+                <option value="">-- Chọn thị trường --</option>
+                <option value="Trung Quốc">Trung Quốc</option>
+                <option value="USA">USA</option>
+                <option value="Úc/NZ">Úc/NZ</option>
+                <option value="Nhật Bản">Nhật Bản</option>
+                <option value="Hàn Quốc">Hàn Quốc</option>
+                <option value="EU">EU</option>
+                <option value="Đông Nam Á">Đông Nam Á</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+            
+            <!-- Loại cây trồng -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Loại cây trồng</label>
+              <select v-model="formData.cay_trong_id" class="input-field">
+                <option :value="null">-- Chọn loại cây --</option>
+                <option v-for="crop in crops" :key="crop.id" :value="crop.id">
+                  {{ crop.ten_cay }}
+                </option>
+              </select>
             </div>
             
             <!-- GPS Coordinates Section -->
@@ -260,12 +284,17 @@
 import { ref, onMounted } from 'vue'
 import { farmService } from '../services/farmService'
 import { userService } from '../services/userService'
+import { categoryService } from '../services/categoryService'
 import { useAuth } from '../composables/useAuth'
 import HistoryListModal from '../components/HistoryListModal.vue'
 import HistoryFormModal from '../components/HistoryFormModal.vue'
 
 const { user } = useAuth()
 const farmers = ref([])
+const crops = ref([])
+const provinces = ref([])
+const districts = ref([])
+
 const fetchFarmers = async () => {
   try {
     const res = await userService.getUsers({ role: 'farmer', page_size: 100 })
@@ -273,8 +302,49 @@ const fetchFarmers = async () => {
   } catch (e) { console.error(e) }
 }
 
+const fetchCrops = async () => {
+  try {
+    const res = await categoryService.getCrops()
+    crops.value = res.data
+  } catch (e) { console.error(e) }
+}
+
+const fetchProvinces = async () => {
+  try {
+    // Load provinces from GeoJSON file
+    const response = await fetch('/data/63tinh-quandao.geojson')
+    const data = await response.json()
+    const provinceNames = data.features.map(f => f.properties.NAME_1).sort()
+    provinces.value = [...new Set(provinceNames)]
+  } catch (e) {
+    console.error('Error loading provinces:', e)
+    // Fallback to common provinces
+    provinces.value = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòng']
+  }
+}
+
+const onProvinceChange = () => {
+  // Reset district when province changes
+  formData.value.huyen_name = ''
+  formData.value.xa_name = ''
+  
+  // For now, set common district names
+  // In a full implementation, this would come from a database or API
+  const commonDistricts = [
+    'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5',
+    'Quận 6', 'Quận 7', 'Quận 8', 'Quận 9', 'Quận 10',
+    'Quận 11', 'Quận 12', 'Quận Bình Thạnh', 'Quận Gò Vấp',
+    'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Tân Phú',
+    'Huyện Bình Chánh', 'Huyện Củ Chi', 'Huyện Hóc Môn',
+    'Huyện Nhà Bè', 'Huyện Cần Giờ'
+  ]
+  districts.value = commonDistricts
+}
+
 const openAddModal = () => {
   if (user.value?.role === 'admin') fetchFarmers()
+  fetchCrops()
+  fetchProvinces()
   showAddModal.value = true
 }
 
@@ -310,6 +380,7 @@ const formData = ref({
   huyen_name: '',
   tinh_name: '',
   thi_truong_xuat_khau: '',
+  cay_trong_id: null,
   latitude: null,
   longitude: null
 })
@@ -346,7 +417,13 @@ const clearFilters = () => {
 const editFarm = (farm) => {
   selectedFarm.value = farm
   if (user.value?.role === 'admin') fetchFarmers()
+  fetchCrops()
+  fetchProvinces()
   formData.value = { ...farm }
+  // If province is set, load districts
+  if (farm.tinh_name) {
+    onProvinceChange()
+  }
   showEditModal.value = true
 }
 
@@ -394,6 +471,7 @@ const closeModals = () => {
     huyen_name: '',
     tinh_name: '',
     thi_truong_xuat_khau: '',
+    cay_trong_id: null,
     latitude: null,
     longitude: null,
     chu_so_huu_id: null

@@ -6,6 +6,7 @@ from models.category import LoaiCayTrong, LoaiHoatDong
 from models.input import PhanBon, ThuocBVTV, GiongCay
 from models.cultivation import VuMua, LichSuCanhTac
 from models.alert import BaoDong
+from models.feedback import Feedback
 
 # Export all
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "VuMua",
     "LichSuCanhTac",
     "BaoDong",
+    "Feedback",
 ]

@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     role: Optional[str] = "farmer"
+    province_code: Optional[str] = None  # For manager role
 
 
 class UserCreate(UserBase):
@@ -23,14 +24,16 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     password: Optional[str] = None
     role: Optional[str] = None
+    province_code: Optional[str] = None
     is_active: Optional[bool] = None
 
 
 class UserResponse(UserBase):
     """Schema for user response"""
     id: int
-    is_active: bool
-    created_at: datetime
+    province_code: Optional[str] = None
+    is_active: Optional[bool] = True
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

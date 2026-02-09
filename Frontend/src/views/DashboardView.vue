@@ -101,6 +101,27 @@
               ✕ Xóa lọc
             </button>
           </div>
+          
+          <!-- Active Filters Display -->
+          <div v-if="filterActive" class="active-filters">
+            <div v-if="chartFilters.crop" class="filter-badge crop">
+              <span class="filter-label">🌱 Cây trồng:</span>
+              <span class="filter-value">{{ chartFilters.crop }}</span>
+            </div>
+            <div v-if="chartFilters.market" class="filter-badge market">
+              <span class="filter-label">🌏 Thị trường:</span>
+              <span class="filter-value">{{ chartFilters.market }}</span>
+            </div>
+            <div v-if="chartFilters.fertilizer" class="filter-badge fertilizer">
+              <span class="filter-label">🌱 Phân bón:</span>
+              <span class="filter-value">{{ chartFilters.fertilizer }}</span>
+            </div>
+            <div v-if="chartFilters.pesticide" class="filter-badge pesticide">
+              <span class="filter-label">🧪 Thuốc BVTV:</span>
+              <span class="filter-value">{{ chartFilters.pesticide }}</span>
+            </div>
+          </div>
+          
           <div class="farm-list">
             <div v-if="provinceFarms.length === 0" class="empty-state">
               <p>Nhấp vào tỉnh trên bản đồ<br/>để xem danh sách vùng trồng</p>
@@ -140,6 +161,23 @@
         <h3 class="chart-title">Tỷ lệ Thuốc BVTV</h3>
         <div class="chart-container" style="height: 300px">
           <v-chart :option="pesticideUsageOption" :loading="chartsLoading" autoresize @click="handleChartClick('pesticide', $event)" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar Charts Grid: Fertilizer and Pesticide Usage by Type -->
+    <div class="usage-charts-grid">
+      <div class="chart-card">
+        <h3 class="chart-title">📊 Sử dụng Phân bón theo Loại</h3>
+        <div class="chart-container" style="height: 350px">
+          <v-chart :option="fertilizerVolumeOption" :loading="chartsLoading" autoresize @click="handleChartClick('fertilizer', $event)" />
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3 class="chart-title">📊 Sử dụng Thuốc BVTV theo Loại</h3>
+        <div class="chart-container" style="height: 350px">
+          <v-chart :option="pesticideVolumeOption" :loading="chartsLoading" autoresize @click="handleChartClick('pesticide', $event)" />
         </div>
       </div>
     </div>
@@ -297,21 +335,56 @@ const selectedFarm = ref(null)
 const farmsData = ref([])  // Farms with layer data (fertilizer/pesticide usage)
 const allFarms = ref([])   // All farms for filtering
 const filterActive = ref(false)  // Track if any filter is active
+const chartFilters = ref({
+  crop: null,
+  market: null,
+  fertilizer: null,
+  pesticide: null
+})
 
 // Computed filtered data based on selection
 const filteredFarms = computed(() => {
+  let result = allFarms.value
+  
   // Farm-level filter takes priority
   if (selectedFarm.value) {
-    return farmsData.value.filter(f => f.id === selectedFarm.value.id)
+    return [selectedFarm.value]
   }
   
   // Province-level filter
   if (selectedProvince.value) {
-    return farmsData.value.filter(f => f.tinh_name === selectedProvince.value)
+    result = result.filter(farm => farm.tinh_name === selectedProvince.value)
   }
   
-  // No filter - return all farms
-  return farmsData.value
+  // Chart filters: Crop type
+  if (chartFilters.value.crop) {
+    result = result.filter(farm => {
+      return farm.cay_trong?.ten_cay === chartFilters.value.crop
+    })
+  }
+  
+  // Chart filters: Export market
+  if (chartFilters.value.market) {
+    result = result.filter(farm => {
+      return farm.thi_truong_xuat_khau === chartFilters.value.market
+    })
+  }
+  
+  // Chart filters: Fertilizer type
+  if (chartFilters.value.fertilizer) {
+    result = result.filter(farm => {
+      return farm.phan_bon?.ten_phan_bon === chartFilters.value.fertilizer
+    })
+  }
+  
+  // Chart filters: Pesticide type
+  if (chartFilters.value.pesticide) {
+    result = result.filter(farm => {
+      return farm.thuoc_bvtv?.ten_thuoc === chartFilters.value.pesticide
+    })
+  }
+  
+  return result
 })
 
 // Computed KPI data based on filtered farms
@@ -665,6 +738,154 @@ const pesticideUsageOption = computed(() => ({
   }]
 }))
 
+// Computed fertilizer volume data aggregated by type
+const filteredFertilizerVolumeData = computed(() => {
+  const farms = filteredFarms.value
+  if (farms.length === 0) return []
+  
+  // Aggregate total volume by fertilizer type
+  const volumeByType = {}
+  
+  farms.forEach(farm => {
+    let typeName = 'Chưa xác định'
+    if (farm.phan_bon && typeof farm.phan_bon === 'object') {
+      typeName = farm.phan_bon.ten_phan_bon || 'Chưa xác định'
+    } else if (farm.fertilizer_volume > 0) {
+      typeName = 'Khác'
+    } else {
+      return // Skip if no fertilizer used
+    }
+    
+    const volume = parseFloat(farm.fertilizer_volume) || 0
+    volumeByType[typeName] = (volumeByType[typeName] || 0) + volume
+  })
+  
+  return Object.entries(volumeByType)
+    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
+    .map(([name, value]) => ({ name, value: Math.round(value * 10) / 10 }))
+})
+
+const fertilizerVolumeOption = computed(() => ({
+  tooltip: { 
+    trigger: 'axis',
+    axisPointer: { type: 'shadow' },
+    formatter: '{b}: {c} kg'
+  },
+  grid: {
+    left: '5%',
+    right: '5%',
+    bottom: '5%',
+    top: '5%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    name: 'Tổng lượng (kg)',
+    axisLabel: { formatter: '{value}' }
+  },
+  yAxis: {
+    type: 'category',
+    data: filteredFertilizerVolumeData.value.map(d => d.name),
+    axisLabel: {
+      fontSize: 12,
+      interval: 0, // Show all labels
+      formatter: (value) => {
+        // Truncate long labels
+        return value.length > 20 ? value.substring(0, 18) + '...' : value
+      }
+    }
+  },
+  series: [{
+    name: 'Phân bón',
+    type: 'bar',
+    data: filteredFertilizerVolumeData.value.map(d => d.value),
+    itemStyle: {
+      color: '#10b981',
+      borderRadius: [0, 4, 4, 0]
+    },
+    label: {
+      show: true,
+      position: 'right',
+      formatter: '{c} kg',
+      fontSize: 11
+    }
+  }]
+}))
+
+// Computed pesticide volume data aggregated by type
+const filteredPesticideVolumeData = computed(() => {
+  const farms = filteredFarms.value
+  if (farms.length === 0) return []
+  
+  // Aggregate total volume by pesticide type
+  const volumeByType = {}
+  
+  farms.forEach(farm => {
+    let typeName = 'Chưa xác định'
+    if (farm.thuoc_bvtv && typeof farm.thuoc_bvtv === 'object') {
+      typeName = farm.thuoc_bvtv.ten_thuoc || 'Chưa xác định'
+    } else if (farm.pesticide_volume > 0) {
+      typeName = 'Khác'
+    } else {
+      return // Skip if no pesticide used
+    }
+    
+    const volume = parseFloat(farm.pesticide_volume) || 0
+    volumeByType[typeName] = (volumeByType[typeName] || 0) + volume
+  })
+  
+  return Object.entries(volumeByType)
+    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
+    .map(([name, value]) => ({ name, value: Math.round(value * 10) / 10 }))
+})
+
+const pesticideVolumeOption = computed(() => ({
+  tooltip: { 
+    trigger: 'axis',
+    axisPointer: { type: 'shadow' },
+    formatter: '{b}: {c} lít'
+  },
+  grid: {
+    left: '5%',
+    right: '5%',
+    bottom: '5%',
+    top: '5%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    name: 'Tổng lượng (lít)',
+    axisLabel: { formatter: '{value}' }
+  },
+  yAxis: {
+    type: 'category',
+    data: filteredPesticideVolumeData.value.map(d => d.name),
+    axisLabel: {
+      fontSize: 12,
+      interval: 0, // Show all labels
+      formatter: (value) => {
+        // Truncate long labels
+        return value.length > 20 ? value.substring(0, 18) + '...' : value
+      }
+    }
+  },
+  series: [{
+    name: 'Thuốc BVTV',
+    type: 'bar',
+    data: filteredPesticideVolumeData.value.map(d => d.value),
+    itemStyle: {
+      color: '#f59e0b',
+      borderRadius: [0, 4, 4, 0]
+    },
+    label: {
+      show: true,
+      position: 'right',
+      formatter: '{c} lít',
+      fontSize: 11
+    }
+  }]
+}))
+
 // Compute Crop x Market data from filtered farms
 const filteredCropMarketData = computed(() => {
   const farms = filteredFarms.value
@@ -932,8 +1153,28 @@ const getSeverityBadge = (severity) => {
 }
 
 const handleChartClick = (chartType, event) => {
-  console.log(`Clicked ${chartType}:`, event)
-  // Placeholder for future interactive filtering
+  const name = event.name
+  if (!name) return
+  
+  console.log(`Chart clicked - Type: ${chartType}, Name: ${name}`)
+  
+  // Toggle filter: if same item clicked, clear it; otherwise set it
+  if (chartFilters.value[chartType] === name) {
+    chartFilters.value[chartType] = null
+  } else {
+    chartFilters.value[chartType] = name
+  }
+  
+  // Update filter active state
+  filterActive.value = selectedProvince.value !== null || 
+    selectedFarm.value !== null ||
+    Object.values(chartFilters.value).some(v => v !== null)
+  
+  console.log('Active filters:', {
+    province: selectedProvince.value,
+    farm: selectedFarm.value,
+    charts: chartFilters.value
+  })
 }
 
 // NEW: Layer and Interaction Methods
@@ -1014,6 +1255,12 @@ const clearFilter = () => {
   selectedProvince.value = null
   selectedFarm.value = null
   provinceFarms.value = []
+  chartFilters.value = {
+    crop: null,
+    market: null,
+    fertilizer: null,
+    pesticide: null
+  }
   filterActive.value = false
   
   // Reset map view to Vietnam using Leaflet flyTo
@@ -1269,6 +1516,7 @@ const initDashboardMap = async () => {
     
     // Store farms data globally for layer switching
     farmsData.value = farmsWithJournals
+    allFarms.value = farmsWithJournals  // Populate allFarms for charts and filtering
     
     // Create markers for all farms (single layer, dynamic styling)
     farmMarkers.value = farmsWithJournals.map(farm => {
@@ -1788,6 +2036,58 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
   transform: scale(1.05);
 }
 
+/* Active Filters Display */
+.active-filters {
+  padding: 0.75rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: white;
+  border-left: 3px solid;
+}
+
+.filter-badge.crop {
+  border-left-color: #10b981;
+}
+
+.filter-badge.market {
+  border-left-color: #3b82f6;
+}
+
+.filter-badge.fertilizer {
+  border-left-color: #10b981;
+}
+
+.filter-badge.pesticide {
+  border-left-color: #f59e0b;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.filter-value {
+  color: #111827;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
 .farm-list {
   flex: 1;
   min-height: 0;
@@ -1879,6 +2179,14 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
   margin-bottom: 1.5rem;
 }
 
+/* Bar Charts Grid (2 columns for fertilizer and pesticide usage) */
+.usage-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
 @media (max-width: 1280px) {
   .map-section {
     grid-template-columns: 1fr;
@@ -1887,10 +2195,18 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
   .pie-charts-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  
+  .usage-charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
   .pie-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .usage-charts-grid {
     grid-template-columns: 1fr;
   }
 }
