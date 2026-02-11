@@ -142,11 +142,6 @@ const fetchHistory = async () => {
   }
 }
 
-const openAddModal = () => {
-  emit('add', props.farm)
-}
-
-
 const confirmDelete = async (record) => {
   if (confirm('Bạn có chắc muốn xóa nhật ký này?')) {
     try {

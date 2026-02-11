@@ -10,9 +10,11 @@ from models import (
     VungTrong, LichSuCanhTac, VuMua, BaoDong, 
     LoaiCayTrong, User, PhanBon, ThuocBVTV, GiongCay
 )
-from routes.auth import get_current_active_user, require_admin
+from routes.auth import get_current_active_user, require_manager_or_admin
+from utils.permission import get_province_filter
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
 
 
 # ==================== KPI Endpoints ====================
@@ -20,7 +22,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 @router.get("/kpi/overview")
 async def get_kpi_overview(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get overall KPI metrics for dashboard
@@ -57,7 +59,7 @@ async def get_kpi_overview(
 @router.get("/kpi/alerts")
 async def get_alert_kpi(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get alert statistics
@@ -91,16 +93,25 @@ async def get_alert_kpi(
 @router.get("/kpi/markets")
 async def get_market_distribution(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get farm distribution by export market
     """
-    markets = db.query(
+    # Get province filter for managers
+    province_filter = get_province_filter(current_user)
+    
+    # Base query with optional province filter
+    query = db.query(
         VungTrong.thi_truong_xuat_khau,
         func.count(VungTrong.id).label("count"),
         func.sum(VungTrong.dien_tich).label("total_area")
-    ).group_by(VungTrong.thi_truong_xuat_khau).all()
+    )
+    
+    if province_filter:
+        query = query.filter(VungTrong.tinh_name == province_filter)
+    
+    markets = query.group_by(VungTrong.thi_truong_xuat_khau).all()
     
     return [
         {
@@ -117,7 +128,7 @@ async def get_market_distribution(
 @router.get("/charts/crop-distribution")
 async def get_crop_distribution(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get crop type distribution for pie chart
@@ -139,7 +150,7 @@ async def get_crop_distribution(
 async def get_input_usage_trends(
     months: int = 6,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get fertilizer and pesticide usage trends over time
@@ -197,10 +208,114 @@ async def get_input_usage_trends(
     }
 
 
+
+@router.get("/charts/input-usage-categorized")
+async def get_input_usage_categorized(
+    province_name: Optional[str] = None,
+    farm_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_manager_or_admin)
+):
+    """
+    Get fertilizer and pesticide usage grouped by categories for admin dashboard.
+    
+    Fertilizers: Grouped by type (Hữu cơ / Vô cơ)
+    Pesticides: Grouped by type (Thuốc trừ sâu, Thuốc diệt cỏ, Thuốc diệt rầy, etc.)
+    
+    Args:
+        province_name: Filter by province name (optional)
+        farm_id: Filter by specific farm ID (optional, takes priority over province)
+    """
+    # Get province filter for managers
+    province_filter = get_province_filter(current_user)
+    
+    # Helper function to parse volume from string
+    def parse_volume(volume_str):
+        if not volume_str:
+            return 0.0
+        try:
+            # Remove common units and extract number
+            cleaned = str(volume_str).lower().replace('kg', '').replace('lít', '').replace('l', '').replace('ml', '').replace('g', '').strip()
+            return float(cleaned)
+        except:
+            return 0.0
+    
+    # Base query for farms with province filter
+    farm_query = db.query(VungTrong.id)
+    
+    # Apply farm_id filter (highest priority)
+    if farm_id:
+        farm_query = farm_query.filter(VungTrong.id == farm_id)
+    # Apply province_name filter from request parameter
+    elif province_name:
+        farm_query = farm_query.filter(VungTrong.tinh_name == province_name)
+    # Apply manager's province filter
+    elif province_filter:
+        farm_query = farm_query.filter(VungTrong.tinh_name == province_filter)
+    
+    farm_ids = [f[0] for f in farm_query.all()]
+    
+    if not farm_ids:
+        return {
+            "fertilizer_by_type": [],
+            "pesticide_by_type": []
+        }
+    
+    # Fertilizer usage by type (Hữu cơ / Vô cơ)
+    fertilizer_data = {}
+    fertilizer_records = db.query(
+        PhanBon.loai_phan_bon,
+        LichSuCanhTac.lieu_luong
+    ).join(
+        LichSuCanhTac, LichSuCanhTac.phan_bon_id == PhanBon.id
+    ).filter(
+        LichSuCanhTac.vung_trong_id.in_(farm_ids),
+        PhanBon.loai_phan_bon.isnot(None)
+    ).all()
+    
+    for type_name, volume_str in fertilizer_records:
+        if type_name not in fertilizer_data:
+            fertilizer_data[type_name] = 0.0
+        fertilizer_data[type_name] += parse_volume(volume_str)
+    
+    # Pesticide usage by type
+    pesticide_data = {}
+    pesticide_records = db.query(
+        ThuocBVTV.loai_thuoc,
+        LichSuCanhTac.lieu_luong
+    ).join(
+        LichSuCanhTac, LichSuCanhTac.thuoc_bvtv_id == ThuocBVTV.id
+    ).filter(
+        LichSuCanhTac.vung_trong_id.in_(farm_ids),
+        ThuocBVTV.loai_thuoc.isnot(None)
+    ).all()
+    
+    for type_name, volume_str in pesticide_records:
+        if type_name not in pesticide_data:
+            pesticide_data[type_name] = 0.0
+        pesticide_data[type_name] += parse_volume(volume_str)
+    
+    # Format response
+    fertilizer_by_type = [
+        {"type": type_name, "value": round(volume, 2)}
+        for type_name, volume in fertilizer_data.items()
+    ]
+    
+    pesticide_by_type = [
+        {"type": type_name, "value": round(volume, 2)}
+        for type_name, volume in pesticide_data.items()
+    ]
+    
+    return {
+        "fertilizer_by_type": fertilizer_by_type,
+        "pesticide_by_type": pesticide_by_type
+    }
+
+
 @router.get("/charts/alert-heatmap")
 async def get_alert_heatmap(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get alert density by location for heatmap
@@ -235,7 +350,7 @@ async def get_alert_heatmap(
 async def get_top_owners(
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get top farm owners by total area
@@ -272,7 +387,7 @@ async def get_top_owners(
 async def get_harvest_schedule(
     days_ahead: int = 30,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get upcoming harvest schedule
@@ -317,7 +432,7 @@ async def get_harvest_schedule(
 @router.get("/spatial/farm-density")
 async def get_farm_density(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get farm density by administrative units
@@ -366,7 +481,7 @@ async def get_farm_density(
 @router.get("/charts/crop-market-relationship")
 async def get_crop_market_relationship(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get crop types distribution across export markets
@@ -417,7 +532,7 @@ async def get_crop_market_relationship(
 @router.get("/charts/fruit-input-correlation")
 async def get_fruit_input_correlation(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get fruit distribution and input usage correlation
@@ -453,7 +568,7 @@ async def get_fruit_input_correlation(
 async def get_input_usage_frequency(
     input_type: str,  # "fertilizer" or "pesticide"
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get usage frequency by input type
@@ -504,7 +619,7 @@ async def get_input_usage_frequency(
 async def get_revoked_alerts(
     limit: int = 20,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get list of farms with resolved/revoked alerts
@@ -542,7 +657,7 @@ async def get_revoked_alerts(
 @router.get("/farms/with-layers")
 async def get_farms_with_layers(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get all farms with aggregated input usage data for layer visualization
@@ -551,6 +666,8 @@ async def get_farms_with_layers(
     - fertilizer_volume: total volume of fertilizer applications (in kg)
     - pesticide_volume: total volume of pesticide applications (in liters)
     - Coordinates for mapping
+    
+    Managers only see farms in their province
     """
     
     def parse_volume(volume_str):
@@ -568,8 +685,14 @@ async def get_farms_with_layers(
         except:
             return 0.0
     
-    # Get all farms with basic info
-    farms = db.query(VungTrong).all()
+    # Get province filter for managers
+    province_filter = get_province_filter(current_user)
+    
+    # Get farms with optional province filter
+    farms_query = db.query(VungTrong)
+    if province_filter:
+        farms_query = farms_query.filter(VungTrong.tinh_name == province_filter)
+    farms = farms_query.all()
     
     result = []
     for farm in farms:
@@ -613,11 +736,12 @@ async def get_farms_with_layers(
 async def get_farms_by_province(
     province_name: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_manager_or_admin)
 ):
     """
     Get farms filtered by province name
     """
+    
     farms = db.query(VungTrong).filter(
         VungTrong.tinh_name == province_name
     ).all()
@@ -637,3 +761,326 @@ async def get_farms_by_province(
         ]
     }
 
+
+# ==================== Farmer Dashboard Endpoints ====================
+
+@router.get("/farmer/kpi")
+async def get_farmer_kpi(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get KPI metrics for farmer's own farms
+    
+    Returns:
+    - Total farms count (owned by farmer)
+    - Total area
+    - Active seasons
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    # Get farms owned by current farmer
+    farmer_farms_query = db.query(VungTrong).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    )
+    
+    # Total farms and area
+    total_farms = farmer_farms_query.count()
+    total_area = db.query(func.sum(VungTrong.dien_tich)).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    ).scalar() or 0
+    
+    # Active seasons for farmer's farms
+    farm_ids = [f.id for f in farmer_farms_query.all()]
+    active_seasons = 0
+    if farm_ids:
+        active_seasons = db.query(func.count(VuMua.id)).filter(
+            VuMua.vung_trong_id.in_(farm_ids),
+            VuMua.trang_thai == "dang_hoat_dong"
+        ).scalar() or 0
+    
+    return {
+        "total_farms": total_farms,
+        "total_area": float(total_area),
+        "active_seasons": active_seasons
+    }
+
+
+@router.get("/farmer/crop-distribution")
+async def get_farmer_crop_distribution(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get crop type distribution for farmer's farms
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    # Get crop distribution
+    crops = db.query(
+        VungTrong.cay_trong,
+        func.count(VungTrong.id).label("count"),
+        func.sum(VungTrong.dien_tich).label("total_area")
+    ).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    ).group_by(VungTrong.cay_trong).all()
+    
+    return [
+        {
+            "crop_type": c.cay_trong or "Chưa xác định",
+            "farm_count": c.count,
+            "total_area": float(c.total_area) if c.total_area else 0
+        }
+        for c in crops
+    ]
+
+
+@router.get("/farmer/farms-map")
+async def get_farmer_farms_map(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get farmer's farms with coordinates for map visualization
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    farms = db.query(VungTrong).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    ).all()
+    
+    result = []
+    for farm in farms:
+        result.append({
+            "id": farm.id,
+            "ma_vung": farm.ma_vung,
+            "ten_vung": farm.ten_vung,
+            "tinh_name": farm.tinh_name,
+            "huyen_name": farm.huyen_name,
+            "cay_trong": farm.cay_trong,
+            "dien_tich": float(farm.dien_tich) if farm.dien_tich else 0,
+            "latitude": float(farm.latitude) if farm.latitude else None,
+            "longitude": float(farm.longitude) if farm.longitude else None
+        })
+    
+    return {"data": result}
+
+
+@router.get("/farmer/cultivation-timeline")
+async def get_farmer_cultivation_timeline(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    limit: int = 10,
+    farm_id: Optional[int] = None
+):
+    """
+    Get recent cultivation activities for farmer's farms
+    Optionally filter by specific farm_id
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    # Get farmer's farm IDs
+    farm_ids_query = db.query(VungTrong.id).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    )
+    
+    # Filter by specific farm if provided
+    if farm_id:
+        farm_ids_query = farm_ids_query.filter(VungTrong.id == farm_id)
+    
+    farm_ids = [f[0] for f in farm_ids_query.all()]
+    
+    if not farm_ids:
+        return []
+    
+    # Get recent cultivation history with all details
+    activities = db.query(LichSuCanhTac).filter(
+        LichSuCanhTac.vung_trong_id.in_(farm_ids)
+    ).order_by(
+        LichSuCanhTac.ngay_thuc_hien.desc()
+    ).limit(limit).all()
+    
+    result = []
+    for activity in activities:
+        # Get farm details
+        farm = db.query(VungTrong).filter(VungTrong.id == activity.vung_trong_id).first()
+        
+        # Get fertilizer details if used
+        fertilizer_name = None
+        if activity.phan_bon_id:
+            fertilizer = db.query(PhanBon).filter(PhanBon.id == activity.phan_bon_id).first()
+            if fertilizer:
+                fertilizer_name = fertilizer.ten_phan_bon
+        
+        # Get pesticide details if used
+        pesticide_name = None
+        if activity.thuoc_bvtv_id:
+            pesticide = db.query(ThuocBVTV).filter(ThuocBVTV.id == activity.thuoc_bvtv_id).first()
+            if pesticide:
+                pesticide_name = pesticide.ten_thuoc
+        
+        result.append({
+            "id": activity.id,
+            "farm_id": activity.vung_trong_id,
+            "farm_name": farm.ten_vung if farm else "Unknown",
+            "activity_type": activity.hoat_dong or "Không xác định",
+            "date": activity.ngay_thuc_hien.isoformat() if activity.ngay_thuc_hien else None,
+            "description": activity.mo_ta or "",
+            "fertilizer": fertilizer_name,
+            "pesticide": pesticide_name,
+            "dosage": activity.lieu_luong or "",
+            "notes": activity.ghi_chu or ""
+        })
+    
+    return result
+
+
+@router.get("/farmer/export-markets")
+async def get_farmer_export_markets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get export market distribution for farmer's farms
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    # Get market distribution
+    markets = db.query(
+        VungTrong.thi_truong_xuat_khau,
+        func.count(VungTrong.id).label("count"),
+        func.sum(VungTrong.dien_tich).label("total_area")
+    ).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    ).group_by(VungTrong.thi_truong_xuat_khau).all()
+    
+    return [
+        {
+            "market": m.thi_truong_xuat_khau or "Chưa xác định",
+            "farm_count": m.count,
+            "total_area": float(m.total_area) if m.total_area else 0
+        }
+        for m in markets
+    ]
+
+
+@router.get("/farmer/input-usage")
+async def get_farmer_input_usage(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    farm_id: Optional[int] = None
+):
+    """
+    Get fertilizer and pesticide usage statistics categorized by type
+    Optionally filter by specific farm_id
+    """
+    if current_user.role != "farmer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is for farmers only"
+        )
+    
+    def parse_volume(volume_str):
+        """Parse volume string to float"""
+        if not volume_str:
+            return 0.0
+        try:
+            cleaned = str(volume_str).strip().replace(',', '.')
+            import re
+            match = re.search(r'\d+\.?\d*', cleaned)
+            if match:
+                return float(match.group())
+            return 0.0
+        except:
+            return 0.0
+    
+    # Get farmer's farm IDs
+    farm_ids_query = db.query(VungTrong.id).filter(
+        VungTrong.chu_so_huu_id == current_user.id
+    )
+    
+    # Filter by specific farm if provided
+    if farm_id:
+        farm_ids_query = farm_ids_query.filter(VungTrong.id == farm_id)
+    
+    farm_ids = [f[0] for f in farm_ids_query.all()]
+    
+    if not farm_ids:
+        return {
+            "fertilizer_by_name": [],
+            "pesticide_by_type": []
+        }
+    
+    # Categorize fertilizers by name
+    fertilizer_usage = {}
+    fertilizer_records = db.query(LichSuCanhTac, PhanBon).join(
+        PhanBon, LichSuCanhTac.phan_bon_id == PhanBon.id
+    ).filter(
+        LichSuCanhTac.vung_trong_id.in_(farm_ids)
+    ).all()
+    
+    for record, fertilizer in fertilizer_records:
+        fert_name = fertilizer.ten_phan_bon or "Khác"
+        volume = parse_volume(record.lieu_luong)
+        if fert_name in fertilizer_usage:
+            fertilizer_usage[fert_name] += volume
+        else:
+            fertilizer_usage[fert_name] = volume
+    
+    # Categorize pesticides by type (loai_thuoc)
+    pesticide_usage = {}
+    pesticide_records = db.query(LichSuCanhTac, ThuocBVTV).join(
+        ThuocBVTV, LichSuCanhTac.thuoc_bvtv_id == ThuocBVTV.id
+    ).filter(
+        LichSuCanhTac.vung_trong_id.in_(farm_ids)
+    ).all()
+    
+    for record, pesticide in pesticide_records:
+        pest_type = pesticide.loai_thuoc or "Khác"
+        volume = parse_volume(record.lieu_luong)
+        if pest_type in pesticide_usage:
+            pesticide_usage[pest_type] += volume
+        else:
+            pesticide_usage[pest_type] = volume
+    
+    # Format response
+    fertilizer_by_name = [
+        {
+            "name": name,
+            "volume": round(volume, 2)
+        }
+        for name, volume in fertilizer_usage.items()
+    ]
+    
+    pesticide_by_type = [
+        {
+            "type": ptype,
+            "volume": round(volume, 2)
+        }
+        for ptype, volume in pesticide_usage.items()
+    ]
+    
+    return {
+        "fertilizer_by_name": fertilizer_by_name,
+        "pesticide_by_type": pesticide_by_type
+    }

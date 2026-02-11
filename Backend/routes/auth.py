@@ -34,6 +34,22 @@ async def require_admin(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
+# Dependency to require admin or manager role
+async def require_manager_or_admin(current_user: User = Depends(get_current_active_user)):
+    """
+    Dependency that requires the current user to have admin or manager role
+    
+    Raises HTTPException if user is neither admin nor manager
+    """
+    if current_user.role not in ["admin", "manager"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: admin or manager role required"
+        )
+    return current_user
+
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """

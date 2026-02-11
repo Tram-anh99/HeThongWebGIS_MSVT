@@ -88,6 +88,21 @@
                 </div>
               </div>
 
+              <!-- Edit and Delete buttons -->
+              <div class="flex gap-2 ml-4">
+                <button 
+                  @click="openEditModal(record)" 
+                  class="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                >
+                  Sửa
+                </button>
+                <button 
+                  @click="confirmDelete(record)" 
+                  class="text-red-600 hover:text-red-800 font-medium text-sm"
+                >
+                  Xóa
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -134,6 +149,13 @@ const fetchHistory = async () => {
     const response = await historyService.getHistory(params)
     historyRecords.value = response.data.items
 
+const openAddModal = () => {
+  emit('add', props.farm)
+}
+
+const openEditModal = (record) => {
+  emit('edit', record)
+}
 
   } catch (err) {
     console.error('Fetch history error:', err)
@@ -141,11 +163,6 @@ const fetchHistory = async () => {
     loading.value = false
   }
 }
-
-const openAddModal = () => {
-  emit('add', props.farm)
-}
-
 
 const confirmDelete = async (record) => {
   if (confirm('Bạn có chắc muốn xóa nhật ký này?')) {

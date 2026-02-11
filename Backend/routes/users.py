@@ -8,6 +8,7 @@ from models import User
 from schemas import UserCreate, UserUpdate, UserResponse, PaginatedResponse
 from utils.auth import get_current_active_user, get_password_hash
 from utils.pagination import paginate
+from utils.permission import get_province_filter, is_manager_or_admin
 
 router = APIRouter(prefix="/users", tags=["Quản lý Người dùng"])
 
@@ -22,15 +23,35 @@ async def list_users(
     db: Session = Depends(get_db)
 ):
     """
-    Lấy danh sách người dùng (Admin only)
+    Lấy danh sách người dùng (Admin and Manager)
+    Managers can only see farmers in their province
     """
-    if current_user.role != "admin":
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires admin privileges"
+            detail="Requires admin or manager privileges"
         )
 
     query = db.query(User)
+    
+    # Province filtering for managers
+    if current_user.role == "manager":
+        # Managers only see farmers from their province
+        # We need to join with VungTrong to filter by province
+        province_filter = get_province_filter(current_user)
+        if province_filter:
+            from models.farm import VungTrong
+            # Get farmer IDs who own farms in manager's province
+            farmer_ids = db.query(VungTrong.chu_so_huu_id).filter(
+                VungTrong.tinh_name == province_filter,
+                VungTrong.chu_so_huu_id.isnot(None)
+            ).distinct().all()
+            farmer_ids = [f[0] for f in farmer_ids]
+            # Filter to only show farmers in their province
+            query = query.filter(
+                User.role == "farmer",
+                User.id.in_(farmer_ids)
+            )
     
     # Filters
     if search:
@@ -58,12 +79,13 @@ async def create_user(
     db: Session = Depends(get_db)
 ):
     """
-    Tạo người dùng mới (Admin only)
+    Tạo người dùng mới (Admin and Manager)
+    Managers can only create farmer accounts in their province
     """
-    if current_user.role != "admin":
+    if not is_manager_or_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requires admin privileges"
+            detail="Requires admin or manager privileges"
         )
         
     # Check exists

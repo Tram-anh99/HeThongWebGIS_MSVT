@@ -132,5 +132,17 @@ export const analyticsService = {
      */
     getFarmsByProvince(provinceName) {
         return api.get(`/analytics/farms/by-province/${encodeURIComponent(provinceName)}`)
+    },
+
+    /**
+     * Get categorized input usage (organic/inorganic fertilizer, pesticide types)
+     * @param {string} provinceName - Optional province name filter
+     * @param {number} farmId - Optional farm ID filter
+     */
+    getCategorizedInputUsage(provinceName = null, farmId = null) {
+        const params = {}
+        if (farmId) params.farm_id = farmId
+        else if (provinceName) params.province_name = provinceName
+        return api.get('/analytics/charts/input-usage-categorized', { params })
     }
 }

@@ -8,6 +8,7 @@ from models import User, VungTrong, LichSuCanhTac, VuMua
 from schemas import FarmCreate, FarmUpdate, FarmResponse, FarmWithHistory, HistoryResponse, PaginatedResponse
 from utils.auth import get_current_active_user
 from utils.pagination import paginate
+from utils.permission import get_province_filter
 from sqlalchemy import func
 
 router = APIRouter(prefix="/farms", tags=["Vùng trồng"])
@@ -37,8 +38,14 @@ async def list_farms(
     )
     
     # Filter by user role
-    if current_user.role != "admin":
+    if current_user.role == "farmer":
         query = query.filter(VungTrong.chu_so_huu_id == current_user.id)
+    elif current_user.role == "manager":
+        # Manager can only see farms in their province
+        province_filter = get_province_filter(current_user)
+        if province_filter:
+            query = query.filter(VungTrong.tinh_name == province_filter)
+    # Admin sees all farms (no filter)
     
     # Apply filters
     if search:
@@ -93,11 +100,20 @@ async def get_farm(
         )
         
     # Check permission
-    if current_user.role != "admin" and farm.chu_so_huu_id != current_user.id:
+    if current_user.role == "farmer" and farm.chu_so_huu_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this farm"
         )
+    elif current_user.role == "manager":
+        # Manager can only view farms in their province
+        province_filter = get_province_filter(current_user)
+        if province_filter and farm.tinh_name != province_filter:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You can only access farms in province: {province_filter}"
+            )
+    # Admin has full access (no check needed)
     
     return farm
 
@@ -145,11 +161,20 @@ async def update_farm(
     farm = db.query(VungTrong).filter(VungTrong.id == farm_id).first()
     
     # Check permission
-    if current_user.role != "admin" and farm.chu_so_huu_id != current_user.id:
+    if current_user.role == "farmer" and farm.chu_so_huu_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to update this farm"
         )
+    elif current_user.role == "manager":
+        # Manager can only update farms in their province
+        province_filter = get_province_filter(current_user)
+        if province_filter and farm.tinh_name != province_filter:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You can only update farms in province: {province_filter}"
+            )
+    # Admin has full access
     
     # Update fields
     update_data = farm_data.model_dump(exclude_unset=True)

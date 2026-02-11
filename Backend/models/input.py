@@ -12,6 +12,7 @@ class PhanBon(Base):
     nha_san_xuat = Column(String(500))
     thanh_phan = Column(Text)
     lieu_luong_khuyen_nghi = Column(Text)
+    loai_phan_bon = Column(String(50))  # 'Hữu cơ' or 'Vô cơ'
     
     def __repr__(self):
         return f"<PhanBon(id={self.id}, ten='{self.ten_phan_bon}')>"

@@ -72,11 +72,14 @@ const submitFeedback = async () => {
   loading.value = true
   try {
     await feedbackService.createFeedback(formData.value)
-    alert('Feedback submitted successfully!')
+    alert('✅ Góp ý đã được gửi thành công!\n\nFeedback submitted successfully!')
     emit('success')
     emit('close')
   } catch (error) {
-    alert('Error submitting feedback: ' + (error.response?.data?.detail || error.message))
+    // Show development alert
+    console.error('Feedback error:', error)
+    alert('⚠️ Chức năng góp ý đang được hoàn thiện\n\nFeedback feature is currently under development\n\n' + 
+          'Vui lòng thử lại sau / Please try again later')
   } finally {
     loading.value = false
   }

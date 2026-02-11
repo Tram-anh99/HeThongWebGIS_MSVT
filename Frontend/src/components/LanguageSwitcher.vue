@@ -36,9 +36,12 @@ const languages = [
 ]
 
 const changeLocale = (langCode) => {
-  currentLocale.value = langCode
-  locale.value = langCode
-  localStorage.setItem('language', langCode)
+  // Show development alert
+  alert('⚠️ Tính năng đa ngôn ngữ đang được hoàn thiện\n\nLanguage switching feature is under development')
+  // Commented out for now
+  // currentLocale.value = langCode
+  // locale.value = langCode
+  // localStorage.setItem('language', langCode)
 }
 
 // Watch for external locale changes

@@ -2,7 +2,14 @@
   <div class="dashboard-view">
     <!-- Header -->
     <div class="dashboard-header">
-      <h1 class="dashboard-title">Bảng điều khiển Admin</h1>
+      <div>
+        <h1 class="dashboard-title">
+          {{ user && user.role === 'manager' ? 'Bảng điều khiển Chi cục' : 'Bảng điều khiển Admin' }}
+        </h1>
+        <p v-if="user && user.role === 'manager' && user.province_code" class="province-indicator">
+          📍 Tỉnh/Thành phố: <strong>{{ user.province_code }}</strong>
+        </p>
+      </div>
       <div class="refresh-button">
         <button @click="refreshData" :disabled="loading" class="btn-refresh">
           <span>🔄</span>
@@ -150,25 +157,28 @@
         </div>
       </div>
 
+      <!-- Hidden: Tỷ lệ Phân bón pie chart
       <div class="chart-card">
         <h3 class="chart-title">Tỷ lệ Phân bón</h3>
         <div class="chart-container" style="height: 300px">
           <v-chart :option="fertilizerUsageOption" :loading="chartsLoading" autoresize @click="handleChartClick('fertilizer', $event)" />
         </div>
       </div>
+      -->
 
+      <!-- Hidden: Tỷ lệ Thuốc BVTV pie chart
       <div class="chart-card">
         <h3 class="chart-title">Tỷ lệ Thuốc BVTV</h3>
         <div class="chart-container" style="height: 300px">
           <v-chart :option="pesticideUsageOption" :loading="chartsLoading" autoresize @click="handleChartClick('pesticide', $event)" />
         </div>
       </div>
+      -->
     </div>
 
-    <!-- Bar Charts Grid: Fertilizer and Pesticide Usage by Type -->
     <div class="usage-charts-grid">
       <div class="chart-card">
-        <h3 class="chart-title">📊 Sử dụng Phân bón theo Loại</h3>
+        <h3 class="chart-title">📊 Sử dụng Phân bón (Hữu cơ / Vô cơ)</h3>
         <div class="chart-container" style="height: 350px">
           <v-chart :option="fertilizerVolumeOption" :loading="chartsLoading" autoresize @click="handleChartClick('fertilizer', $event)" />
         </div>
@@ -279,8 +289,14 @@ import L from 'leaflet'
 
 import KPICard from '../components/dashboard/KPICard.vue'
 import { analyticsService } from '../services/analyticsService'
+import api from '../services/api'
 import { useMap } from '../composables/useMap'
 import { farmService } from '../services/farmService'
+import { useAuth } from '../composables/useAuth'
+
+// Get current user for province display
+const { user } = useAuth()
+
 
 // Register ECharts components
 use([
@@ -319,6 +335,7 @@ const fertilizerUsageData = ref([])
 const pesticideUsageData = ref([])
 const revokedAlerts = ref([])
 const cropsByFarmData = ref([])
+const categorizedInputData = ref({ fertilizer_by_type: [], pesticide_by_type: [] })
 
 // Layer and interaction state
 const layers = ref({
@@ -549,46 +566,55 @@ const filteredCropsByFarmData = computed(() => {
 
 const cropsByFarmOption = computed(() => ({
   tooltip: { 
-    trigger: 'item', 
-    formatter: '{b}: {c} vùng ({d}%)' 
-  },
-  legend: { 
-    type: 'scroll',  // Enable scrollbar
-    orient: 'vertical', 
-    right: '10%',  // Move legend to right side
-    top: '10%',
-    bottom: '10%',
-    textStyle: { 
-      fontSize: 12,
-      width: 150,  // Max width before wrapping
-      overflow: 'break'  // Allow text to wrap
+    trigger: 'axis',
+    axisPointer: {
+      type: 'shadow'
     },
-    formatter: (name) => {
-      const item = filteredCropsByFarmData.value.find(d => d.name === name)
-      return item ? `${name}: ${item.value}` : name
-    }
+    formatter: '{b}: {c} vùng'
   },
   grid: {
-    left: '5%',
-    right: '30%',  // Make space for legend
+    left: '15%',
+    right: '10%',
     top: '10%',
-    bottom: '10%'
+    bottom: '5%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    name: 'Số lượng vùng',
+    axisLabel: {
+      fontSize: 12
+    }
+  },
+  yAxis: {
+    type: 'category',
+    data: filteredCropsByFarmData.value.map(d => d.name),
+    axisLabel: {
+      fontSize: 12,
+      interval: 0,
+      formatter: (value) => {
+        return value.length > 15 ? value.substring(0, 13) + '...' : value
+      }
+    }
   },
   series: [{
     name: 'Cây trồng',
-    type: 'pie',
-    center: ['40%', '50%'],  // Move chart to left
-    radius: '60%',
+    type: 'bar',
+    data: filteredCropsByFarmData.value.length > 0 ? filteredCropsByFarmData.value.map(d => d.value) : [1],
+    itemStyle: {
+      color: (params) => {
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+        return colors[params.dataIndex % colors.length]
+      },
+      borderRadius: [0, 4, 4, 0]
+    },
     label: {
-      show: false
+      show: true,
+      position: 'right',
+      formatter: '{c}',
+      fontSize: 11
     },
-    labelLine: {
-      show: false
-    },
-    data: filteredCropsByFarmData.value.length > 0 ? filteredCropsByFarmData.value : [
-      { value: 1, name: 'Không có dữ liệu' }
-    ],
-    emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+    barWidth: '60%'
   }]
 }))
 
@@ -739,30 +765,13 @@ const pesticideUsageOption = computed(() => ({
 }))
 
 // Computed fertilizer volume data aggregated by type
+// Use categorized backend data - Organic vs Inorganic
 const filteredFertilizerVolumeData = computed(() => {
-  const farms = filteredFarms.value
-  if (farms.length === 0) return []
-  
-  // Aggregate total volume by fertilizer type
-  const volumeByType = {}
-  
-  farms.forEach(farm => {
-    let typeName = 'Chưa xác định'
-    if (farm.phan_bon && typeof farm.phan_bon === 'object') {
-      typeName = farm.phan_bon.ten_phan_bon || 'Chưa xác định'
-    } else if (farm.fertilizer_volume > 0) {
-      typeName = 'Khác'
-    } else {
-      return // Skip if no fertilizer used
-    }
-    
-    const volume = parseFloat(farm.fertilizer_volume) || 0
-    volumeByType[typeName] = (volumeByType[typeName] || 0) + volume
-  })
-  
-  return Object.entries(volumeByType)
-    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
-    .map(([name, value]) => ({ name, value: Math.round(value * 10) / 10 }))
+  if (!categorizedInputData.value.fertilizer_by_type) return []
+  return categorizedInputData.value.fertilizer_by_type.map(item => ({
+    type: item.type,
+    value: item.value
+  }))
 })
 
 const fertilizerVolumeOption = computed(() => ({
@@ -772,71 +781,52 @@ const fertilizerVolumeOption = computed(() => ({
     formatter: '{b}: {c} kg'
   },
   grid: {
-    left: '5%',
-    right: '5%',
-    bottom: '5%',
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
     top: '5%',
     containLabel: true
   },
   xAxis: {
-    type: 'value',
-    name: 'Tổng lượng (kg)',
-    axisLabel: { formatter: '{value}' }
+    type: 'category',
+    data: filteredFertilizerVolumeData.value.map(d => d.type),
+    axisLabel: { 
+      fontSize: 14,
+      fontWeight: '500'
+    }
   },
   yAxis: {
-    type: 'category',
-    data: filteredFertilizerVolumeData.value.map(d => d.name),
-    axisLabel: {
-      fontSize: 12,
-      interval: 0, // Show all labels
-      formatter: (value) => {
-        // Truncate long labels
-        return value.length > 20 ? value.substring(0, 18) + '...' : value
-      }
-    }
+    type: 'value',
+    name: 'Khối lượng (kg)',
+    axisLabel: { formatter: '{value}' }
   },
   series: [{
     name: 'Phân bón',
     type: 'bar',
     data: filteredFertilizerVolumeData.value.map(d => d.value),
     itemStyle: {
-      color: '#10b981',
-      borderRadius: [0, 4, 4, 0]
+      color: (params) => {
+        // Hữu cơ = green, Vô cơ = blue
+        return params.name === 'Hữu cơ' ? '#10b981' : '#3b82f6'
+      },
+      borderRadius: [4, 4, 0, 0]
     },
     label: {
       show: true,
-      position: 'right',
+      position: 'top',
       formatter: '{c} kg',
       fontSize: 11
     }
   }]
 }))
 
-// Computed pesticide volume data aggregated by type
+// Use categorized backend data - by pesticide types
 const filteredPesticideVolumeData = computed(() => {
-  const farms = filteredFarms.value
-  if (farms.length === 0) return []
-  
-  // Aggregate total volume by pesticide type
-  const volumeByType = {}
-  
-  farms.forEach(farm => {
-    let typeName = 'Chưa xác định'
-    if (farm.thuoc_bvtv && typeof farm.thuoc_bvtv === 'object') {
-      typeName = farm.thuoc_bvtv.ten_thuoc || 'Chưa xác định'
-    } else if (farm.pesticide_volume > 0) {
-      typeName = 'Khác'
-    } else {
-      return // Skip if no pesticide used
-    }
-    
-    const volume = parseFloat(farm.pesticide_volume) || 0
-    volumeByType[typeName] = (volumeByType[typeName] || 0) + volume
-  })
-  
-  return Object.entries(volumeByType)
-    .sort((a, b) => b[1] - a[1]) // Sort by volume descending
-    .map(([name, value]) => ({ name, value: Math.round(value * 10) / 10 }))
+  if (!categorizedInputData.value.pesticide_by_type) return []
+  return categorizedInputData.value.pesticide_by_type.map(item => ({
+    type: item.type,
+    value: item.value
+  }))
 })
 
 const pesticideVolumeOption = computed(() => ({
@@ -859,13 +849,13 @@ const pesticideVolumeOption = computed(() => ({
   },
   yAxis: {
     type: 'category',
-    data: filteredPesticideVolumeData.value.map(d => d.name),
+    data: filteredPesticideVolumeData.value.map(d => d.type),
     axisLabel: {
       fontSize: 12,
       interval: 0, // Show all labels
       formatter: (value) => {
         // Truncate long labels
-        return value.length > 20 ? value.substring(0, 18) + '...' : value
+        return value.length > 25 ? value.substring(0, 23) + '...' : value
       }
     }
   },
@@ -1110,6 +1100,19 @@ const fetchPesticideUsage = async () => {
   }
 }
 
+const fetchCategorizedInputData = async () => {
+  try {
+    // Pass province and farm filters
+    const provinceName = selectedProvince.value
+    const farmId = selectedFarm.value?.id
+    const response = await analyticsService.getCategorizedInputUsage(provinceName, farmId)
+    categorizedInputData.value = response.data
+  } catch (error) {
+    console.error('Error fetching categorized input data:', error)
+    categorizedInputData.value = { fertilizer_by_type: [], pesticide_by_type: [] }
+  }
+}
+
 const fetchRevokedAlerts = async () => {
   try {
     const response = await analyticsService.getRevokedAlerts(20)
@@ -1338,6 +1341,7 @@ const refreshData = async () => {
       fetchKPIData(), fetchAlertData(), fetchMarketData(),
       fetchInputUsageData(), fetchTopOwners(),
       fetchRevokedAlerts(),
+      fetchCategorizedInputData(),
       fetchFertilizerUsage(), fetchPesticideUsage()
     ])
   } catch (error) {
@@ -1657,6 +1661,12 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
   
   console.log(`Map updated: showing ${markersToShow.length} of ${farmMarkers.value.length} farms`)
 }, { deep: true })
+
+// Watch for province/farm selection changes and refetch categorized data
+watch([selectedProvince, selectedFarm], async () => {
+  console.log('Filter changed, refetching categorized data...')
+  await fetchCategorizedInputData()
+}, { immediate: false })
 </script>
 
 <style scoped>
@@ -1669,8 +1679,9 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
 .dashboard-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 2rem;
+  gap: 1rem;
 }
 
 .dashboard-title {
@@ -1678,6 +1689,18 @@ watch([filteredFarms, selectedFarm, () => layers.value.farms], async ([newFilter
   font-weight: 700;
   color: #111827;
   margin: 0;
+}
+
+.province-indicator {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: var(--primary-600);
+  font-weight: 500;
+}
+
+.province-indicator strong {
+  color: var(--primary-700);
+  font-weight: 700;
 }
 
 .btn-refresh {

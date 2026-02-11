@@ -48,8 +48,18 @@
             >
               {{ $t('nav.feedback') }}
             </router-link>
+            <!-- Farmer Dashboard -->
             <router-link
-              v-if="isAuthenticated && user && user.role === 'admin'"
+              v-if="isAuthenticated && user && user.role === 'farmer'"
+              to="/farmer-dashboard"
+              class="px-4 py-2 rounded-lg hover:bg-primary-600 transition"
+              :class="{ 'bg-primary-600': $route.path === '/farmer-dashboard' }"
+            >
+              {{ $t('nav.dashboard') }}
+            </router-link>
+            <!-- Admin/Manager Dashboard -->
+            <router-link
+              v-if="isAuthenticated && user && (user.role === 'admin' || user.role === 'manager')"
               to="/dashboard"
               class="px-4 py-2 rounded-lg hover:bg-primary-600 transition"
               :class="{ 'bg-primary-600': $route.path === '/dashboard' }"
@@ -72,9 +82,9 @@
             <!-- Language Switcher Icons -->
             <LanguageSwitcher />
             
-            <!-- Account Icon -->
+            <!-- Account Icon (only for admin and manager) -->
             <router-link
-              v-if="isAuthenticated && user"
+              v-if="isAuthenticated && user && (user.role === 'admin' || user.role === 'manager')"
               to="/users"
               class="text-white hover:text-primary-100 transition relative group"
               :title="user.full_name || user.username"

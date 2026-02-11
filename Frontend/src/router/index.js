@@ -51,9 +51,19 @@ const routes = [
         name: 'Dashboard',
         component: () => import('../views/DashboardView.vue'),
         meta: {
-            title: 'Bảng điều khiển Admin',
+            title: 'Bảng điều khiển',
             requiresAuth: true,
-            role: 'admin'
+            roles: ['admin', 'manager']
+        }
+    },
+    {
+        path: '/farmer-dashboard',
+        name: 'FarmerDashboard',
+        component: () => import('../views/FarmerDashboardView.vue'),
+        meta: {
+            title: 'Bảng điều khiển Nông dân',
+            requiresAuth: true,
+            role: 'farmer'
         }
     },
     {
@@ -107,12 +117,22 @@ router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth && !token) {
         next({ name: 'Login', query: { redirect: to.fullPath } })
     }
-    // Check Role
-    else if (to.meta.role && user && user.role !== to.meta.role) {
-        // Redirect to Home if unauthorized
-        next({ name: 'Home' })
+    // Check Role (supports both single role and roles array)
+    else if (user) {
+        if (to.meta.role && user.role !== to.meta.role) {
+            // Single role check
+            next({ name: 'Home' })
+        } else if (to.meta.roles && !to.meta.roles.includes(user.role)) {
+            // Multiple roles check
+            next({ name: 'Home' })
+        } else if (to.name === 'Login') {
+            // Redirect authenticated users away from login
+            next({ name: 'Home' })
+        } else {
+            next()
+        }
     }
-    // Redirect Login if authenticated
+    // Redirect Login if authenticated (and user object might be null but token exists)
     else if (to.name === 'Login' && token) {
         next({ name: 'Home' })
     } else {
